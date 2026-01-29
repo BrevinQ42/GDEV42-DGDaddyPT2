@@ -87,13 +87,24 @@ int main()
                 position.x = max.x - radius;
         }
 
-        if (IsKeyPressed(KEY_T))
-            std::cout << position.x << " / " <<  WINDOW_WIDTH - camera_view.offset.x << "\n";
-
         if (IsKeyPressed(KEY_ENTER)){
             if (camera_view.zoom == 1.0f)
             {
                 camera_view.zoom = zoom_factor;
+
+                if (max.x - position.x <= WINDOW_WIDTH / 2)
+                    camera_view.offset.x = WINDOW_WIDTH - (max.x - position.x);
+                else if (position.x - min.x <= WINDOW_WIDTH / 2)
+                    camera_view.offset.x = position.x - min.x;
+                else
+                    camera_view.offset.x = WINDOW_WIDTH / 2;
+
+                if (max.y - position.y <= WINDOW_HEIGHT / 2)
+                    camera_view.offset.y = WINDOW_HEIGHT - (max.y - position.y);
+                else if (position.y - min.y <= WINDOW_HEIGHT / 2)
+                    camera_view.offset.y = position.y - min.y;
+                else
+                    camera_view.offset.y = WINDOW_HEIGHT / 2;
             }
             else
             {
@@ -181,22 +192,6 @@ int main()
                 isEdgeSnapped[1] = false;
         }
         // else if zoomed in, static camera
-        else
-        {
-             if (max.x - position.x <= WINDOW_WIDTH / 2)
-                camera_view.offset.x = WINDOW_WIDTH - (max.x - position.x);
-            else if (position.x - min.x <= WINDOW_WIDTH / 2)
-                camera_view.offset.x = position.x - min.x;
-            else
-                camera_view.offset.x = WINDOW_WIDTH / 2;
-
-            if (max.y - position.y <= WINDOW_HEIGHT / 2)
-                camera_view.offset.y = WINDOW_HEIGHT - (max.y - position.y);
-            else if (position.y - min.y <= WINDOW_HEIGHT / 2)
-                camera_view.offset.y = position.y - min.y;
-            else
-                camera_view.offset.y = WINDOW_HEIGHT / 2;
-        }
 
         BeginDrawing();
         ClearBackground(BLACK);
