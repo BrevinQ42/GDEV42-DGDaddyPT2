@@ -2,6 +2,7 @@
 #include <raymath.h>
 #include <fstream>
 #include <string>
+#include <iostream>
 
 const float WINDOW_WIDTH = 800;
 const float WINDOW_HEIGHT = 600;
@@ -86,6 +87,9 @@ int main()
                 position.x = max.x - radius;
         }
 
+        if (IsKeyPressed(KEY_T))
+            std::cout << position.x << " / " <<  WINDOW_WIDTH - camera_view.offset.x << "\n";
+
         if (IsKeyPressed(KEY_ENTER)){
             if (camera_view.zoom == 1.0f)
             {
@@ -137,12 +141,20 @@ int main()
             if (position.x - camera_view.offset.x <= min.x)
             {
                 camera_view.offset.x = position.x - min.x;
-                isEdgeSnapped[0] = true;
+
+                if (camera_view.offset.x < WINDOW_WIDTH / 2)
+                    isEdgeSnapped[0] = true;
+                else
+                    isEdgeSnapped[0] = false;
             }
             else if (position.x + (WINDOW_WIDTH - camera_view.offset.x) >= max.x)
             {
                 camera_view.offset.x = position.x + WINDOW_WIDTH - max.x;
-                isEdgeSnapped[0] = true;
+                
+                if (camera_view.offset.x > WINDOW_WIDTH / 2)
+                    isEdgeSnapped[0] = true;
+                else
+                    isEdgeSnapped[0] = false;
             }
             else
                 isEdgeSnapped[0] = false;
@@ -150,17 +162,41 @@ int main()
             if (position.y - camera_view.offset.y <= min.y)
             {
                 camera_view.offset.y = position.y - min.y;
-                isEdgeSnapped[1] = true;
+                
+                if (camera_view.offset.y < WINDOW_HEIGHT / 2)
+                    isEdgeSnapped[1] = true;
+                else
+                    isEdgeSnapped[1] = false;
             }
             else if (position.y + (WINDOW_HEIGHT - camera_view.offset.y) >= max.y)
             {
-                camera_view.offset.y = position.y + WINDOW_HEIGHT - max.y;   
-                isEdgeSnapped[1] = true;
+                camera_view.offset.y = position.y + WINDOW_HEIGHT - max.y;
+                
+                if (camera_view.offset.y > WINDOW_HEIGHT / 2)
+                    isEdgeSnapped[1] = true;
+                else
+                    isEdgeSnapped[1] = false;
             }
             else
                 isEdgeSnapped[1] = false;
         }
         // else if zoomed in, static camera
+        else
+        {
+             if (max.x - position.x <= WINDOW_WIDTH / 2)
+                camera_view.offset.x = WINDOW_WIDTH - (max.x - position.x);
+            else if (position.x - min.x <= WINDOW_WIDTH / 2)
+                camera_view.offset.x = position.x - min.x;
+            else
+                camera_view.offset.x = WINDOW_WIDTH / 2;
+
+            if (max.y - position.y <= WINDOW_HEIGHT / 2)
+                camera_view.offset.y = WINDOW_HEIGHT - (max.y - position.y);
+            else if (position.y - min.y <= WINDOW_HEIGHT / 2)
+                camera_view.offset.y = position.y - min.y;
+            else
+                camera_view.offset.y = WINDOW_HEIGHT / 2;
+        }
 
         BeginDrawing();
         ClearBackground(BLACK);
