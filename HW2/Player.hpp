@@ -72,13 +72,6 @@ public:
     void Exit();
 };
 
-class PlayerColliding : public PlayerState {
-public:
-    void Enter();
-    void Update(float delta_time);
-    void Exit();
-};
-
 class Player : public Entity{
     PlayerState* current_state = nullptr;
 public:
@@ -88,7 +81,6 @@ public:
     float damageQueue = 0.0f;
     float enemyDamageQueue = 0.0f;
     
-    PlayerColliding colliding;
     PlayerIdle idle;
     PlayerMoving moving;
     PlayerAttacking attacking;

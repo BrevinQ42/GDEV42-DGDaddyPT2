@@ -87,7 +87,6 @@ Enemy::Enemy(Vector2 pos, float spd) {
 
     HP = 4.0f;
 
-    colliding.enemy = this;
     wandering.enemy = this;
     chasing.enemy = this;
     attacking.enemy = this;
@@ -107,10 +106,6 @@ void Enemy::SetState(EnemyState* state) {
 
 EnemyState* Enemy::GetCurrentState() {
     return current_state;
-}
-
-void EnemyColliding::Enter() {
-    enemy->color = BLACK;
 }
 
 void EnemyWandering::Enter() {
@@ -137,8 +132,6 @@ void EnemyReadyingAttack::Enter() {
     attackTimer += 1.0f;
 }
 
-void EnemyColliding::Exit() {}
-
 void EnemyWandering::Exit() {
     directionTimer = 0.0f;
 }
@@ -153,8 +146,6 @@ void EnemyAttacking::Exit() {
 void EnemyReadyingAttack::Exit() {
     attackTimer = 0.0f;
 }
-
-void EnemyColliding::Update(float delta_time) {}
 
 void EnemyWandering::Update(float delta_time) {
     enemy->velocity = Vector2Zero();

@@ -57,13 +57,6 @@ public:
     void Exit();
 };
 
-class EnemyColliding : public EnemyState {
-public:
-    void Enter();
-    void Update(float delta_time);
-    void Exit();
-};
-
 class Enemy : public Entity{
     EnemyState* current_state = nullptr;
 public:
@@ -83,7 +76,6 @@ public:
     bool isChasing = false;
     bool justChased = false;
     
-    EnemyColliding colliding;
     EnemyWandering wandering;
     EnemyChasing chasing;
     EnemyAttacking attacking;

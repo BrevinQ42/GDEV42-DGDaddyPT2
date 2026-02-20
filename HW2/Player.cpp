@@ -51,7 +51,7 @@ void Player::Update(float delta_time) {
 
 void Player::Draw() {
     DrawCircleV(position, radius, color);
-    DrawText(("HP: " + std::to_string(HP)).c_str(), WINDOW_WIDTH / 2 - 225, 50.0f, 50, RED);
+    DrawText(("HP: " + std::to_string(HP)).c_str(), position.x, position.y, 50, RED);
     
     if (GetCurrentState() == &attacking){
         Rectangle rect = {position.x - radius, position.y - radius, radius * 2, radius * 2};
@@ -95,7 +95,6 @@ Player::Player(Vector2 pos, float rad, float spd) {
     min = {position.x - radius, position.y - radius};
     max = {position.x + radius, position.y + radius};
 
-    colliding.player = this;
     idle.player = this;
     moving.player = this;
     attacking.player = this;
@@ -136,10 +135,6 @@ PlayerState* Player::GetCurrentState() {
     return current_state;
 }
 
-void PlayerColliding::Enter() {
-    player->color = ORANGE;
-}
-
 void PlayerIdle::Enter() {
     player->color = SKYBLUE;
 }
@@ -162,8 +157,6 @@ void PlayerDodging::Enter() {
     dodgeTimer += 0.5f;
 }
 
-void PlayerColliding::Exit() {}
-
 void PlayerIdle::Exit() {}
 
 void PlayerMoving::Exit() {}
@@ -173,8 +166,6 @@ void PlayerAttacking::Exit() {}
 void PlayerBlocking::Exit() {}
 
 void PlayerDodging::Exit() {}
-
-void PlayerColliding::Update(float delta_time) {}
 
 void PlayerIdle::Update(float delta_time) {
     if (IsKeyDown(KEY_W) || IsKeyDown(KEY_A) || IsKeyDown(KEY_S) || IsKeyDown(KEY_D)) {
