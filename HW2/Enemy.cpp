@@ -14,12 +14,6 @@
 
 #include "Enemy.hpp"
 
-const float WINDOW_WIDTH = 1280;
-const float WINDOW_HEIGHT = 720;
-
-const Vector2 WORLD_MIN = {-500, -500};
-const Vector2 WORLD_MAX = {1300, 1100};
-
 void Enemy::Update(float delta_time) {
     rect = {position.x, position.y, 50.0f, 50.0f};
     min = {position.x - rect.width / 2.0f, position.y - rect.height / 2.0f};

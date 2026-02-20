@@ -18,12 +18,6 @@
 
 #include "Player.hpp"
 
-const float WINDOW_WIDTH = 1280;
-const float WINDOW_HEIGHT = 720;
-
-const Vector2 WORLD_MIN = {-500, -500};
-const Vector2 WORLD_MAX = {1300, 1100};
-
 const int ENEMY_DAMAGE_TO_PLAYER = 2.0f;
 const int PLAYER_DAMAGE_TO_ENEMY = 2.0f;
 

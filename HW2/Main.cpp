@@ -2,11 +2,8 @@
 #include <raymath.h>
 #include <iostream>
 
-#include "Player.hpp"
-#include "Enemy.hpp"
-
-const float WINDOW_WIDTH = 1280.0f;
-const float WINDOW_HEIGHT = 720.0f;
+#include "Player.cpp"
+#include "Enemy.cpp"
 
 const float TARGET_FPS = 60.0f;
 const float TIMESTEP = 1.0f / TARGET_FPS;

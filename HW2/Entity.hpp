@@ -14,6 +14,12 @@
 #include <raylib.h>
 #include <raymath.h>
 
+const float WINDOW_WIDTH = 1280.0f;
+const float WINDOW_HEIGHT = 720.0f;
+
+const Vector2 WORLD_MIN = {-500, -500};
+const Vector2 WORLD_MAX = {1300, 1100};
+
 class Entity;
 
 class EntityState {
