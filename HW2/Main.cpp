@@ -8,10 +8,9 @@
 const float TARGET_FPS = 60.0f;
 const float TIMESTEP = 1.0f / TARGET_FPS;
 
-const Vector2 min = {-500, -500};
-const Vector2 max = {1300, 1100};
-
 const int numEntities = 3;
+
+Texture image;
 
 int main() {
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "BenitoQueRedoble_Homework02");
@@ -55,27 +54,45 @@ int main() {
         }
 
         BeginDrawing();
-        ClearBackground(WHITE);
 
-        BeginMode2D(camera_view);
-
-        // if player.hp <= 0, draw lose screen
-        // if (player.hp <= 0)
-        // if e1.hp <= 0 && e2.hp <= 0, win screen
-
-        // Mark boundaries (sana all)
-        DrawText(TextFormat("x"), min.x + (max.x-min.x)/2, min.y + (max.y-min.y)/2, 20, RED);
-        DrawText(TextFormat("x"), min.x + 20, min.y + 10, 20, RED);
-        DrawText(TextFormat("x"), min.x + 20, max.y - 30, 20, RED);
-        DrawText(TextFormat("x"), max.x - 30, min.y + 10, 20, RED);
-        DrawText(TextFormat("x"), max.x - 30, max.y - 30, 20, RED);
-
-        for (int i = 0; i < numEntities; i++) {
-            entities[i]->Draw();
+        if (player.HP <= 0) {
+            ClearBackground(RED);
+            DrawText("You Lose!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
+            EndDrawing();
+            continue;
         }
-        
-        EndMode2D();
-        EndDrawing();
+
+        else if (e1.HP <= 0 && e2.HP <= 0) {
+            ClearBackground(GREEN);
+            DrawText("You Win!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
+            EndDrawing();
+            continue;
+        }
+
+        else {
+            ClearBackground(WHITE);
+
+            BeginMode2D(camera_view);
+
+            // if player.hp <= 0, draw lose screen
+            // if (player.hp <= 0)
+            // if e1.hp <= 0 && e2.hp <= 0, win screen
+
+            // Mark boundaries (sana all)
+            DrawText(TextFormat("x"), WORLD_MIN.x + (WORLD_MAX.x-WORLD_MIN.x)/2, WORLD_MIN.y + (WORLD_MAX.y-WORLD_MIN.y)/2, 20, RED);
+            DrawText(TextFormat("x"), WORLD_MIN.x + 20, WORLD_MIN.y + 10, 20, RED);
+            DrawText(TextFormat("x"), WORLD_MIN.x + 20, WORLD_MAX.y - 30, 20, RED);
+            DrawText(TextFormat("x"), WORLD_MAX.x - 30, WORLD_MIN.y + 10, 20, RED);
+            DrawText(TextFormat("x"), WORLD_MAX.x - 30, WORLD_MAX.y - 30, 20, RED);
+
+            for (int i = 0; i < numEntities; i++) {
+                entities[i]->Draw();
+            }
+            
+            EndMode2D();
+            EndDrawing();
+        }
+
     }
 
     CloseWindow();
