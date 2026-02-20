@@ -76,10 +76,6 @@ class Player : public Entity{
     PlayerState* current_state = nullptr;
 public:
     float radius;
-
-    float damageTimer = 0.0f; //stops the player from taking damage every frame
-    float damageQueue = 0.0f;
-    float enemyDamageQueue = 0.0f;
     
     PlayerIdle idle;
     PlayerMoving moving;

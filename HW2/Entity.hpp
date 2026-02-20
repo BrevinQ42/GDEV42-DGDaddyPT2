@@ -41,6 +41,9 @@ public:
     Color color;
     float HP = 0.0f;
 
+    float damageTimer = 0.0f; //stops entity from taking damage every frame
+    float damageQueue = 0.0f;
+
     Vector2 velocity = {0.0f, 0.0f};
     Vector2 acceleration = {0.0f, 0.0f};
     float speed = 0.0f;

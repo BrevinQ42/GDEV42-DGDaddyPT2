@@ -19,6 +19,21 @@ void Enemy::Update(float delta_time) {
     min = {position.x - rect.width / 2.0f, position.y - rect.height / 2.0f};
     max = {position.x + rect.width / 2.0f, position.y + rect.height / 2.0f};
 
+    // Update enemy's HP based on whether the enemy has been attacked by player (damageQueue)
+    // and on whether enemy has recently taken damage (damageTimer)
+    if (damageQueue != 0.0f) {
+        if (damageTimer == 0.5f){
+            HP -= damageQueue;
+        }
+
+        damageTimer -= delta_time;
+
+        if (damageTimer <= 0.0f) {            
+            damageQueue = 0.0f;
+            damageTimer = 0.0f; 
+        }
+    }
+
     current_state->Update(delta_time);
 }
 

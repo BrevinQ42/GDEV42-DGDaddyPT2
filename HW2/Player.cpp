@@ -74,10 +74,10 @@ void Player::HandleCollision(Entity* other) {
         // No damage if dodging
     }
 
-    // if attacking, decrease
-    if (enemyDamageQueue != 0.0f && enemyDistance <= 0.0f) {
-        other->HP -= enemyDamageQueue;
-        enemyDamageQueue = 0.0f;
+    // if attacking, damage enemy if not invulnerable anymore
+    if (GetCurrentState() == &attacking && enemyDistance <= 0.0f && other->damageTimer == 0.0f) {
+        other->damageQueue = PLAYER_DAMAGE_TO_ENEMY;
+        other->damageTimer = 0.5f;
     }
 }
 
@@ -229,9 +229,6 @@ void PlayerMoving::Update(float delta_time) {
 }
 
 void PlayerAttacking::Update(float delta_time) {
-    if (attackTimer == 0.3f) {
-        player->enemyDamageQueue = PLAYER_DAMAGE_TO_ENEMY;
-    }
     attackTimer -= delta_time;
 
     if (attackTimer <= 0.0f) {
