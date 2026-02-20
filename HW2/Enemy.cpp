@@ -29,10 +29,13 @@ void Enemy::Update(float delta_time) {
 }
 
 void Enemy::Draw() {
-    DrawRectanglePro(rect, {rect.width / 2.0f, rect.height / 2.0f}, rotation, color);   
-    DrawCircleLinesV(position, detectionRadius, YELLOW);
-    DrawCircleLinesV(position, aggroRadius, ORANGE);
-    DrawCircleLinesV(position, attackRadius, RED);
+    if (HP > 0){
+        DrawRectanglePro(rect, {rect.width / 2.0f, rect.height / 2.0f}, rotation, color);   
+        DrawCircleLinesV(position, detectionRadius, YELLOW);
+        DrawCircleLinesV(position, aggroRadius, ORANGE);
+        DrawCircleLinesV(position, attackRadius, RED);
+        DrawText(("Enemy HP: " + std::to_string(HP)).c_str(), position.x, position.y, 50, RED);
+    }
 }
 
 void Enemy::HandleCollision(Entity* other) {
@@ -82,7 +85,7 @@ Enemy::Enemy(Vector2 pos, float spd) {
     min = {position.x - rect.width / 2.0f, position.y - rect.height / 2.0f};
     max = {position.x + rect.width / 2.0f, position.y + rect.height / 2.0f};
 
-    HP = 5.0f;
+    HP = 4.0f;
 
     colliding.enemy = this;
     wandering.enemy = this;

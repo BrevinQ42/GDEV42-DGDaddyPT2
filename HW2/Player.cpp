@@ -12,7 +12,6 @@
 |------------------------------------------------------|
 */
 
-
 #include <raylib.h>
 #include <raymath.h>
 #include <iostream>
@@ -26,6 +25,7 @@ const Vector2 WORLD_MIN = {-500, -500};
 const Vector2 WORLD_MAX = {1300, 1100};
 
 const int ENEMY_DAMAGE_TO_PLAYER = 2.0f;
+const int PLAYER_DAMAGE_TO_ENEMY = 2.0f;
 
 void Player::Update(float delta_time) {
     min = {position.x - radius, position.y - radius};
@@ -73,10 +73,13 @@ void Player::HandleCollision(Entity* other) {
         }
         damageTimer = 0.5f;
         // No damage if dodging
-
-        std::cout << "Player HP: " << HP << std::endl;
     }
-    
+
+    // if attacking, decrease
+    if (enemyDamageQueue != 0.0f && enemyDistance <= 0.0f) {
+        other->HP -= enemyDamageQueue;
+        enemyDamageQueue = 0.0f;
+    }
 }
 
 Player::Player(Vector2 pos, float rad, float spd) {
@@ -86,7 +89,7 @@ Player::Player(Vector2 pos, float rad, float spd) {
     radius = rad;
     speed = spd;
 
-    HP = 5.0f;
+    HP = 15.0f;
     damageTimer = 0.0f;
 
     min = {position.x - radius, position.y - radius};
@@ -236,7 +239,10 @@ void PlayerMoving::Update(float delta_time) {
 }
 
 void PlayerAttacking::Update(float delta_time) {
-    attackTimer-= delta_time;
+    if (attackTimer == 0.3f) {
+        player->enemyDamageQueue = PLAYER_DAMAGE_TO_ENEMY;
+    }
+    attackTimer -= delta_time;
 
     if (attackTimer <= 0.0f) {
         attackTimer = 0.0f;
