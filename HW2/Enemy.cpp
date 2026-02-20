@@ -197,7 +197,6 @@ void EnemyChasing::Update(float delta_time) {
 
 void Enemy::rotateTowardsPlayer(Vector2 directionToPlayer){
     float angle = atan2f(directionToPlayer.y, directionToPlayer.x) * RAD2DEG;
-
     rotation = angle; 
  }
 
@@ -209,10 +208,14 @@ void EnemyAttacking::Update(float delta_time) {
 
     attackTimer -= delta_time;
 
-    if (enemy->inAttack && attackTimer <= 0.0f){
-        enemy->SetState(&enemy->readyingAttack);
+    if (attackTimer <= 0.0f) {
+        if (enemy->inAttack){
+            enemy->SetState(&enemy->readyingAttack);
+        }
+        else if(!enemy->inAttack && enemy->inAggro){
+            enemy->SetState(&enemy->chasing);
+        }
     }
-    
 }
 
 void EnemyReadyingAttack::Update(float delta_time) {
@@ -220,14 +223,8 @@ void EnemyReadyingAttack::Update(float delta_time) {
     //continuing to rotate itself in the player's direction
     attackTimer -= delta_time;
 
-
     if (attackTimer <= 0){
         enemy->SetState(&enemy->attacking);
     }
-    else if(!enemy->inAttack && enemy->inAggro){
-        enemy->SetState(&enemy->chasing);
-    }
-
-
 }
 

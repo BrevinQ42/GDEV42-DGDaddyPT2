@@ -58,6 +58,7 @@ void Player::HandleCollision(Entity* other) {
 
     enemyDistance = enemyDistance - (radius + (other->max.x - other->min.x)/2.0f);
 
+    std::cout << "Enemy Distance: " << enemyDistance << std::endl;
     if (damageTimer == 0.0f && enemyDistance <= 0.0f) {
         if (GetCurrentState() == &idle || GetCurrentState() == &moving || GetCurrentState() == &attacking){
             damageQueue = ENEMY_DAMAGE_TO_PLAYER;
