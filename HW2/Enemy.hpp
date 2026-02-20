@@ -68,7 +68,6 @@ class Enemy : public Entity{
     EnemyState* current_state = nullptr;
 public:
     Rectangle rect;
-    Vector2 center;
 
     Vector2 direction = Vector2Zero();
     float rotation = 0.0f;

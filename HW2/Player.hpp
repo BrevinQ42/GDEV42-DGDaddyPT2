@@ -84,7 +84,8 @@ class Player : public Entity{
 public:
     float radius;
 
-    bool isColliding = false;
+    float damageTimer = 0.0f; //stops the player from taking damage every frame
+    float damageQueue = 0.0f;
     
     PlayerColliding colliding;
     PlayerIdle idle;

@@ -25,21 +25,58 @@ const float WINDOW_HEIGHT = 720;
 const Vector2 WORLD_MIN = {-500, -500};
 const Vector2 WORLD_MAX = {1300, 1100};
 
+const int ENEMY_DAMAGE_TO_PLAYER = 2.0f;
+
 void Player::Update(float delta_time) {
     min = {position.x - radius, position.y - radius};
     max = {position.x + radius, position.y + radius};
+
+    // Update player's HP based on whether the player has collided (damageQueue)
+    // and on whether player has recently taken damage (damageTimer)
+    if (damageQueue != 0.0f) {
+        if (damageTimer == 0.5f){
+            HP -= damageQueue;
+        }
+
+        damageTimer -= delta_time;
+
+        if (damageTimer <= 0.0f) {            
+            damageQueue = 0.0f;
+            damageTimer = 0.0f; 
+        }
+    }
 
     current_state->Update(delta_time);
 }
 
 void Player::Draw() {
     DrawCircleV(position, radius, color);
+    DrawText(("HP: " + std::to_string(HP)).c_str(), WINDOW_WIDTH / 2 - 225, 50.0f, 50, RED);
+    
+    if (GetCurrentState() == &attacking){
+        Rectangle rect = {position.x - radius, position.y - radius, radius * 2, radius * 2};
+        DrawRectangleLinesEx(rect, 2, RED);
+    }
 }
 
 void Player::HandleCollision(Entity* other) {
-    if (Vector2Distance(position, other->position) < radius) {
-        isColliding = true;
+    float enemyDistance = Vector2Distance(position, other->position);
+
+    enemyDistance = enemyDistance - (radius + (other->max.x - other->min.x)/2.0f);
+
+    if (damageTimer == 0.0f && enemyDistance <= 0.0f) {
+        if (GetCurrentState() == &idle || GetCurrentState() == &moving || GetCurrentState() == &attacking){
+            damageQueue = ENEMY_DAMAGE_TO_PLAYER;
+        }
+        else if (GetCurrentState() == &blocking) {
+            damageQueue = ENEMY_DAMAGE_TO_PLAYER / 2.0f; // Blocking reduces damage by half      
+        }
+        damageTimer = 0.5f;
+        // No damage if dodging
+
+        std::cout << "Player HP: " << HP << std::endl;
     }
+    
 }
 
 Player::Player(Vector2 pos, float rad, float spd) {
@@ -48,6 +85,9 @@ Player::Player(Vector2 pos, float rad, float spd) {
     position = pos;
     radius = rad;
     speed = spd;
+
+    HP = 5.0f;
+    damageTimer = 0.0f;
 
     min = {position.x - radius, position.y - radius};
     max = {position.x + radius, position.y + radius};
@@ -107,7 +147,7 @@ void PlayerMoving::Enter() {
 
 void PlayerAttacking::Enter() {
     player->color = RED;
-    attackTimer += 5.0f; // Attack lasts for 0.5 seconds
+    attackTimer += 0.3f; // Attack lasts for 0.5 seconds
 }
 
 void PlayerBlocking::Enter() {
@@ -162,8 +202,6 @@ void PlayerMoving::Update(float delta_time) {
     if (IsKeyDown(KEY_S)) player->velocity.y += player->speed * delta_time;
     if (IsKeyDown(KEY_A)) player->velocity.x -= player->speed * delta_time;
     if (IsKeyDown(KEY_D)) player->velocity.x += player->speed * delta_time;
-
-    std::cout << "Velocity: (" << player->velocity.x << ", " << player->velocity.y << ")\n";
 
     Vector2 TempPosition = Vector2Add(player->position, player->velocity);
 

@@ -29,21 +29,18 @@ void Enemy::Update(float delta_time) {
 }
 
 void Enemy::Draw() {
-    center = {position.x, position.y};
     DrawRectanglePro(rect, {rect.width / 2.0f, rect.height / 2.0f}, rotation, color);   
-    DrawCircleLinesV(center, detectionRadius, YELLOW);
-    DrawCircleLinesV(center, aggroRadius, ORANGE);
-    DrawCircleLinesV(center, attackRadius, RED);
+    DrawCircleLinesV(position, detectionRadius, YELLOW);
+    DrawCircleLinesV(position, aggroRadius, ORANGE);
+    DrawCircleLinesV(position, attackRadius, RED);
 }
 
 void Enemy::HandleCollision(Entity* other) {
     if(!other->isPlayer) return; //only handles player for now
 
-    std::cout << "justChased is " << justChased << std::endl;
-
     float playerRadius = (other->max.x - other->min.x) / 2.0f;
 
-    float playerDistance = Vector2Distance(center, other->position) - playerRadius;
+    float playerDistance = Vector2Distance(position, other->position) - playerRadius;
 
     // will optimize
     if (playerDistance <= detectionRadius) {
@@ -63,13 +60,14 @@ void Enemy::HandleCollision(Entity* other) {
 
     if (playerDistance <= attackRadius) {
         inAttack = true;
+
     }
     else {
         inAttack = false;
     }
 
     if(isChasing){
-        Vector2 directionToPlayer = Vector2Normalize(Vector2Subtract(other->position, center));
+        Vector2 directionToPlayer = Vector2Normalize(Vector2Subtract(other->position, position));
 
         rotateTowardsPlayer(directionToPlayer);
         direction = directionToPlayer;
@@ -81,9 +79,10 @@ Enemy::Enemy(Vector2 pos, float spd) {
     speed = spd;
 
     rect = {position.x, position.y, 50.0f, 50.0f};
-    center = {position.x + (rect.width / 2.0f), position.y + (rect.height / 2.0f)};
     min = {position.x - rect.width / 2.0f, position.y - rect.height / 2.0f};
     max = {position.x + rect.width / 2.0f, position.y + rect.height / 2.0f};
+
+    HP = 5.0f;
 
     colliding.enemy = this;
     wandering.enemy = this;
@@ -198,7 +197,6 @@ void EnemyChasing::Update(float delta_time) {
     enemy->position = Vector2Add(enemy->position, enemy->velocity);
 
     if (!enemy->justChased) {
-        std::cout << "Player lost! Returning to wandering..." << std::endl;
         enemy->SetState(&enemy->wandering);
 
         enemy->isChasing = false;
@@ -211,8 +209,6 @@ void EnemyChasing::Update(float delta_time) {
 
 void Enemy::rotateTowardsPlayer(Vector2 directionToPlayer){
     float angle = atan2f(directionToPlayer.y, directionToPlayer.x) * RAD2DEG;
-
-    std::cout << "Angle to player: " << angle << std::endl;
 
     rotation = angle; 
  }

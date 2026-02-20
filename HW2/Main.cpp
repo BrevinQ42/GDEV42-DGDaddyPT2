@@ -62,6 +62,10 @@ int main() {
 
         BeginMode2D(camera_view);
 
+        // if player.hp <= 0, draw lose screen
+        // if (player.hp <= 0)
+        // if e1.hp <= 0 && e2.hp <= 0, win screen
+
         // Mark boundaries (sana all)
         DrawText(TextFormat("x"), min.x + (max.x-min.x)/2, min.y + (max.y-min.y)/2, 20, RED);
         DrawText(TextFormat("x"), min.x + 20, min.y + 10, 20, RED);
@@ -72,9 +76,6 @@ int main() {
         for (int i = 0; i < numEntities; i++) {
             entities[i]->Draw();
         }
-        
-        std::cout << "Player position: (" << player.position.x << ", " << player.position.y << ")\n";
-        std::cout << delta_time << " seconds since last frame\n";
         
         EndMode2D();
         EndDrawing();
