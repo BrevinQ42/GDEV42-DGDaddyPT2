@@ -226,12 +226,7 @@ void EnemyAttacking::Update(float delta_time) {
     attackTimer -= delta_time;
 
     if (attackTimer <= 0.0f) {
-        if (enemy->inAttack){
-            enemy->SetState(&enemy->readyingAttack);
-        }
-        else if(!enemy->inAttack && enemy->inAggro){
-            enemy->SetState(&enemy->chasing);
-        }
+        enemy->SetState(&enemy->wandering);
     }
 }
 
