@@ -40,6 +40,9 @@ void Player::Update(float delta_time) {
         }
     }
 
+    std::cout << "Damage Timer: " << damageTimer << std::endl;
+    std::cout << "Damage Queue: " << damageQueue << std::endl;
+
     current_state->Update(delta_time);
 }
 
@@ -62,11 +65,12 @@ void Player::HandleCollision(Entity* other) {
     if (damageTimer == 0.0f && enemyDistance <= 0.0f) {
         if (GetCurrentState() == &idle || GetCurrentState() == &moving || GetCurrentState() == &attacking){
             damageQueue = ENEMY_DAMAGE_TO_PLAYER;
+            damageTimer = 0.5f;
         }
         else if (GetCurrentState() == &blocking) {
             damageQueue = ENEMY_DAMAGE_TO_PLAYER / 2.0f; // Blocking reduces damage by half      
+            damageTimer = 0.5f;
         }
-        damageTimer = 0.5f;
         // No damage if dodging
     }
 
