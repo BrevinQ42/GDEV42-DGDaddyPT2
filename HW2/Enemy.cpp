@@ -15,6 +15,8 @@
 #include "Enemy.hpp"
 
 void Enemy::Update(float delta_time) {
+    if (HP <= 0) return;
+
     rect = {position.x, position.y, 50.0f, 50.0f};
     min = {position.x - rect.width / 2.0f, position.y - rect.height / 2.0f};
     max = {position.x + rect.width / 2.0f, position.y + rect.height / 2.0f};
@@ -48,7 +50,7 @@ void Enemy::Draw() {
 }
 
 void Enemy::HandleCollision(Entity* other) {
-    if(!other->isPlayer) return; //only handles player for now
+    if(!other->isPlayer || HP <= 0) return; //only handles player for now
 
     float playerRadius = (other->max.x - other->min.x) / 2.0f;
 
