@@ -15,6 +15,8 @@ Texture image;
 int main() {
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "BenitoQueRedoble_Homework02");
 
+    image = LoadTexture("bg.jpg");
+
     Vector2 position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
 
     Camera2D camera_view = {0};
@@ -32,12 +34,15 @@ int main() {
 
     float accumulator = 0.0f;
 
+    bool endGame = false;
+
     while (!WindowShouldClose()){
+
         float delta_time = GetFrameTime();
 
         accumulator += delta_time;
 
-        while(accumulator >= TIMESTEP) {
+        while(accumulator >= TIMESTEP && !endGame) {
             for (int i = 0; i < numEntities; i++) { // Could be simplified but this works for the bonus
                 for (int j = 0; j < numEntities; j++) {
                     if (i != j) {
@@ -59,14 +64,14 @@ int main() {
             ClearBackground(RED);
             DrawText("You Lose!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
             EndDrawing();
-            continue;
+            endGame = true;
         }
 
         else if (e1.HP <= 0 && e2.HP <= 0) {
             ClearBackground(GREEN);
             DrawText("You Win!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
             EndDrawing();
-            continue;
+            endGame = true;
         }
 
         else {
@@ -74,9 +79,7 @@ int main() {
 
             BeginMode2D(camera_view);
 
-            // if player.hp <= 0, draw lose screen
-            // if (player.hp <= 0)
-            // if e1.hp <= 0 && e2.hp <= 0, win screen
+            DrawTexturePro(image, {0.0f, 0.0f, 1800.0f, 1600.0f}, {WORLD_MIN.x, WORLD_MIN.y, 1800.0f, 1600.0f}, {0, 0}, 0, WHITE);
 
             // Mark boundaries (sana all)
             DrawText(TextFormat("x"), WORLD_MIN.x + (WORLD_MAX.x-WORLD_MIN.x)/2, WORLD_MIN.y + (WORLD_MAX.y-WORLD_MIN.y)/2, 20, RED);
@@ -95,6 +98,7 @@ int main() {
 
     }
 
+    UnloadTexture(image);
     CloseWindow();
     return 0;
 }
