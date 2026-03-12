@@ -37,6 +37,7 @@ void Enemy::Update(float delta_time) {
     }
 
     current_state->Update(delta_time);
+    HandleWallCollisions();
 }
 
 void Enemy::Draw() {
@@ -49,7 +50,7 @@ void Enemy::Draw() {
     }
 }
 
-void Enemy::HandleCollision(Entity* other) {
+void Enemy::HandleEntityCollision(Entity* other) {
     if(!other->isPlayer || HP <= 0) return; //only handles player for now
 
     float playerRadius = (other->max.x - other->min.x) / 2.0f;
@@ -88,6 +89,93 @@ void Enemy::HandleCollision(Entity* other) {
     }
 }
 
+void collide(Enemy* enemy, Rectangle rect) {
+    Vector2 closestPoint = {Clamp(enemy->position.x, rect.x, rect.x + rect.width),
+                                Clamp(enemy->position.y, rect.y, rect.y + rect.height)};
+
+    Vector2 collisionVector = Vector2Subtract(enemy->position, closestPoint);
+    float cvMagnitude = Vector2Length(collisionVector);
+
+    if (cvMagnitude > (enemy->max.x - enemy->min.x)/2) return;
+
+    // wall is static, so relative velocity is just the velocity of the enemy
+    Vector2 velocityRel = enemy->velocity;   
+    float dotProduct = Vector2DotProduct(collisionVector, velocityRel);
+
+    // if collision normal and relative velocity are towards roughly the same direction, no collision
+    if (dotProduct >= 0) return;
+
+    // let enemy mass be 1.0f
+    float iNum = (1 + ELASTICITY) * dotProduct;
+    float iDenom = pow(cvMagnitude, 2)
+        * (1.0f + 0.0f);
+    float impulse = -(iNum/iDenom);
+
+    enemy->position = Vector2Add(enemy->position, Vector2Scale(collisionVector, impulse/1.0f));
+}
+
+void Enemy::HandleWallCollisions() {
+    Vector2 top_left = {(float) floor(min.x / tile_size) - (WORLD_MIN.x / tile_size), (float) floor(min.y / tile_size) - (WORLD_MIN.y / tile_size)};
+    Vector2 bot_right = {(float) floor(max.x / tile_size) - (WORLD_MIN.x / tile_size), (float) floor(max.y / tile_size) - (WORLD_MIN.y / tile_size)};
+
+    // clamp
+    if (top_left.x < 0) top_left.x = 0;
+    if (top_left.y < 0) top_left.y = 0;
+    if (bot_right.x > col_count-1) bot_right.x = col_count-1;
+    if (bot_right.y > row_count-1) bot_right.y = row_count-1;
+
+    // check if top left cell contains a wall / obstacle
+    if (walls.count(grid[(int) top_left.x][(int) top_left.y]))
+    {
+        Rectangle rect = {top_left.x * tile_size + WORLD_MIN.x, top_left.y * tile_size + WORLD_MIN.y,
+                            (float) tile_size, (float) tile_size};
+        collide(this, rect);   
+    }
+
+    // if top left same as bot right, no need to check further
+    if (FloatEquals(top_left.x, bot_right.x) && FloatEquals(top_left.y, bot_right.y))
+        return;
+    
+    // else, check if bot right cell contains a wall / obstacle
+    if (walls.count(grid[(int) bot_right.x][(int) bot_right.y]))
+    {                
+        Rectangle rect = {bot_right.x * tile_size + WORLD_MIN.x, bot_right.y * tile_size + WORLD_MIN.y,
+                            (float) tile_size, (float) tile_size};
+        collide(this, rect);
+    }
+
+    // if both x and y coordinates are different, check more
+    if (!FloatEquals(top_left.x, bot_right.x) && !FloatEquals(top_left.y, bot_right.y))
+    {        
+        // check top right
+        if (walls.count(grid[(int) bot_right.x][(int) top_left.y]))
+        {            
+            Rectangle rect = {bot_right.x * tile_size + WORLD_MIN.x, top_left.y * tile_size + WORLD_MIN.y,
+                                (float) tile_size, (float) tile_size};
+            collide(this, rect);
+        }
+                
+        // check bot left
+        if (walls.count(grid[(int) top_left.x][(int) bot_right.y]))
+        {                    
+            Rectangle rect = {top_left.x * tile_size + WORLD_MIN.x, bot_right.y * tile_size + WORLD_MIN.y,
+                                (float) tile_size, (float) tile_size};
+            collide(this, rect);
+        }
+    }
+}
+
+Enemy::Enemy() {
+    HP = 4.0f;
+
+    wandering.enemy = this;
+    chasing.enemy = this;
+    attacking.enemy = this;
+    readyingAttack.enemy = this;
+
+    SetState(&wandering);
+}
+
 Enemy::Enemy(Vector2 pos, float spd) {
     position = pos;
     speed = spd;
@@ -121,6 +209,9 @@ EnemyState* Enemy::GetCurrentState() {
 
 void EnemyWandering::Enter() {
     enemy->color = YELLOW;
+
+    enemy->isChasing = false;
+    enemy->rotation = 0.0f;
 
     // Initialize timer and direction
     directionTimer = (float) GetRandomValue(1, 5);
@@ -172,29 +263,7 @@ void EnemyWandering::Update(float delta_time) {
     }
 
     enemy->velocity = Vector2Scale(enemy->direction, enemy->speed * delta_time);
-
-    Vector2 tempPosition = Vector2Add(enemy->position, enemy->velocity);
-    if (enemy->min.x <= WORLD_MIN.x){
-        tempPosition.x = WORLD_MIN.x;
-        enemy->velocity = Vector2Negate(enemy->velocity);
-    }
-
-    if (enemy->max.x >= WORLD_MAX.x){
-        tempPosition.x = WORLD_MAX.x - enemy->rect.width;
-        enemy->velocity = Vector2Negate(enemy->velocity);
-    }
-
-    if (enemy->min.y <= WORLD_MIN.y){
-        tempPosition.y = WORLD_MIN.y + enemy->rect.height;
-        enemy->velocity = Vector2Negate(enemy->velocity);
-    }
-
-    if (enemy->max.y >= WORLD_MAX.y){
-        tempPosition.y = WORLD_MAX.y - enemy->rect.height;
-        enemy->velocity = Vector2Negate(enemy->velocity);
-    }
-
-    enemy->position = tempPosition;
+    enemy->position = Vector2Add(enemy->position, enemy->velocity);
 }
 
 void EnemyChasing::Update(float delta_time) {
@@ -203,9 +272,6 @@ void EnemyChasing::Update(float delta_time) {
 
     if (!enemy->justChased) {
         enemy->SetState(&enemy->wandering);
-
-        enemy->isChasing = false;
-        enemy->rotation = 0.0f;
     }
     else if (enemy->inAttack) {
         enemy->SetState(&enemy->readyingAttack);
@@ -220,8 +286,8 @@ void Enemy::rotateTowardsPlayer(Vector2 directionToPlayer){
 void EnemyAttacking::Update(float delta_time) {
     // dash toward the last position
     // prev velocity * 3
-    enemy->velocity = Vector2Scale(enemy->direction, enemy->speed * delta_time);
-    enemy->position = Vector2Add(enemy->position, Vector2Scale(enemy->velocity, 3.0f));
+    enemy->velocity = Vector2Scale(enemy->direction, enemy->speed * 3.0f * delta_time);
+    enemy->position = Vector2Add(enemy->position, enemy->velocity);
 
     attackTimer -= delta_time;
 

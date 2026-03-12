@@ -91,7 +91,9 @@ public:
 
     void SetState(PlayerState* state);
 
-    void HandleCollision(Entity* other);
+    void HandleEntityCollision(Entity* other);
+
+    void HandleWallCollisions();
 
     void UpdateCamera(Camera2D* camera_view);
 

@@ -81,13 +81,16 @@ public:
     EnemyAttacking attacking;
     EnemyReadyingAttack readyingAttack;
 
+    Enemy();
     Enemy(Vector2 pos, float spd);
 
     void Update(float delta_time);
 
     void Draw();
 
-    void HandleCollision(Entity* other);
+    void HandleEntityCollision(Entity* other);
+
+    void HandleWallCollisions();
 
     void SetState(EnemyState* state);
 

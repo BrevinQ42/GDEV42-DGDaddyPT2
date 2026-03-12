@@ -17,8 +17,19 @@
 const float WINDOW_WIDTH = 1280.0f;
 const float WINDOW_HEIGHT = 720.0f;
 
-const Vector2 WORLD_MIN = {-500, -500};
-const Vector2 WORLD_MAX = {1300, 1100};
+const Vector2 WORLD_MIN = {-640, -640};
+const Vector2 WORLD_MAX = {960, 960};
+
+const float ELASTICITY = 0.0f;
+
+std::set<int> walls;
+
+int tile_size;
+
+int col_count;
+int row_count;
+int rows_loaded;
+int** grid;
 
 class Entity;
 
@@ -54,7 +65,9 @@ public:
 
     virtual void Draw() = 0;
 
-    virtual void HandleCollision(Entity* other) = 0;
+    virtual void HandleEntityCollision(Entity* other) = 0;
+    
+    virtual void HandleWallCollisions() = 0;
 };
 
 #endif

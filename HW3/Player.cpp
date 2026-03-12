@@ -41,6 +41,7 @@ void Player::Update(float delta_time) {
     }
 
     current_state->Update(delta_time);
+    HandleWallCollisions();
 }
 
 void Player::Draw() {
@@ -53,7 +54,7 @@ void Player::Draw() {
     }
 }
 
-void Player::HandleCollision(Entity* other) {
+void Player::HandleEntityCollision(Entity* other) {
     if (other->HP <= 0) return;                 // avoid collisions with unalive entities
 
     float enemyDistance = Vector2Distance(position, other->position);
@@ -76,6 +77,84 @@ void Player::HandleCollision(Entity* other) {
     if (GetCurrentState() == &attacking && enemyDistance <= 0.0f && other->damageTimer == 0.0f) {
         other->damageQueue = PLAYER_DAMAGE_TO_ENEMY;
         other->damageTimer = 0.5f;
+    }
+}
+
+void collide(Player* player, Rectangle rect) {
+    Vector2 closestPoint = {Clamp(player->position.x, rect.x, rect.x + rect.width),
+                                Clamp(player->position.y, rect.y, rect.y + rect.height)};
+
+    Vector2 collisionVector = Vector2Subtract(player->position, closestPoint);
+    float cvMagnitude = Vector2Length(collisionVector);
+
+    // if distance between closest point and the player is greater than the player's radius,
+    // no collision
+    if (cvMagnitude > player->radius) return;
+
+    // wall is static, so relative velocity is just the velocity of the player
+    Vector2 velocityRel = player->velocity;   
+    float dotProduct = Vector2DotProduct(collisionVector, velocityRel);
+
+    // if collision normal and relative velocity are towards roughly the same direction, no collision
+    if (dotProduct >= 0) return;
+
+    // let player mass be 1.0f
+    float iNum = (1 + ELASTICITY) * dotProduct;
+    float iDenom = pow(cvMagnitude, 2)
+        * (1.0f + 0.0f);
+    float impulse = -(iNum/iDenom);
+
+    player->position = Vector2Add(player->position, Vector2Scale(collisionVector, impulse/1.0f));
+}
+
+void Player::HandleWallCollisions() {
+    Vector2 top_left = {(float) floor(min.x / tile_size) - (WORLD_MIN.x / tile_size), (float) floor(min.y / tile_size) - (WORLD_MIN.y / tile_size)};
+    Vector2 bot_right = {(float) floor(max.x / tile_size) - (WORLD_MIN.x / tile_size), (float) floor(max.y / tile_size) - (WORLD_MIN.y / tile_size)};
+
+    // clamp
+    if (top_left.x < 0) top_left.x = 0;
+    if (top_left.y < 0) top_left.y = 0;
+    if (bot_right.x > col_count-1) bot_right.x = col_count-1;
+    if (bot_right.y > row_count-1) bot_right.y = row_count-1;
+
+    // check if top left cell contains a wall / obstacle
+    if (walls.count(grid[(int) top_left.x][(int) top_left.y]))
+    {
+        Rectangle rect = {top_left.x * tile_size + WORLD_MIN.x, top_left.y * tile_size + WORLD_MIN.y,
+                            (float) tile_size, (float) tile_size};
+        collide(this, rect);   
+    }
+
+    // if top left same as bot right, no need to check further
+    if (FloatEquals(top_left.x, bot_right.x) && FloatEquals(top_left.y, bot_right.y))
+        return;
+    
+    // else, check if bot right cell contains a wall / obstacle
+    if (walls.count(grid[(int) bot_right.x][(int) bot_right.y]))
+    {                
+        Rectangle rect = {bot_right.x * tile_size + WORLD_MIN.x, bot_right.y * tile_size + WORLD_MIN.y,
+                            (float) tile_size, (float) tile_size};
+        collide(this, rect);
+    }
+
+    // if both x and y coordinates are different, check more
+    if (!FloatEquals(top_left.x, bot_right.x) && !FloatEquals(top_left.y, bot_right.y))
+    {        
+        // check top right
+        if (walls.count(grid[(int) bot_right.x][(int) top_left.y]))
+        {            
+            Rectangle rect = {bot_right.x * tile_size + WORLD_MIN.x, top_left.y * tile_size + WORLD_MIN.y,
+                                (float) tile_size, (float) tile_size};
+            collide(this, rect);
+        }
+                
+        // check bot left
+        if (walls.count(grid[(int) top_left.x][(int) bot_right.y]))
+        {                    
+            Rectangle rect = {top_left.x * tile_size + WORLD_MIN.x, bot_right.y * tile_size + WORLD_MIN.y,
+                                (float) tile_size, (float) tile_size};
+            collide(this, rect);
+        }
     }
 }
 
@@ -194,31 +273,9 @@ void PlayerMoving::Update(float delta_time) {
     if (IsKeyDown(KEY_A)) player->velocity.x -= player->speed * delta_time;
     if (IsKeyDown(KEY_D)) player->velocity.x += player->speed * delta_time;
 
-    Vector2 TempPosition = Vector2Add(player->position, player->velocity);
+    player->position = Vector2Add(player->position, player->velocity);
 
-    if (TempPosition.x - player->radius <= WORLD_MIN.x){
-        TempPosition.x = WORLD_MIN.x + player->radius;
-        player->velocity = Vector2Negate(player->velocity);
-    }
-
-    if (TempPosition.x + player->radius >= WORLD_MAX.x){
-        TempPosition.x = WORLD_MAX.x - player->radius;
-        player->velocity = Vector2Negate(player->velocity);
-    }
-
-    if (TempPosition.y - player->radius <= WORLD_MIN.y){
-        TempPosition.y = WORLD_MIN.y + player->radius;
-        player->velocity = Vector2Negate(player->velocity);
-    }
-
-    if (TempPosition.y + player->radius >= WORLD_MAX.y){
-        TempPosition.y = WORLD_MAX.y - player->radius;
-        player->velocity = Vector2Negate(player->velocity);
-    }
-
-    player->position = TempPosition;
-
-    if (Vector2Length(player->velocity) < 0.2f) player->velocity = Vector2Zero();
+    // if (Vector2Length(player->velocity) < 0.2f) player->velocity = Vector2Zero();
     // NOTE THAT YOU DO NOT HAVE TO DO PHYSICS IMPLEMENTATION
     
     if(Vector2Length(player->velocity) == 0) {
@@ -242,13 +299,14 @@ void PlayerBlocking::Update(float delta_time) {
 }
 
 void PlayerDodging::Update(float delta_time) {
-    player->position = Vector2Add(player->position, Vector2Scale(player->velocity, 2.0f)); // Move faster while dodging
+    player->velocity = Vector2Normalize(player->velocity);
+    player->velocity = Vector2Scale(player->velocity, player->speed * 2.0f * delta_time); // Move faster while dodging
+    player->position = Vector2Add(player->position, player->velocity);
 
     dodgeTimer -= delta_time;
 
     if (dodgeTimer <= 0.0f) {
         dodgeTimer = 0.0f;
-        player->velocity = Vector2Zero(); 
         player->SetState(&player->idle);
     }
 }
