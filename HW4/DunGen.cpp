@@ -605,7 +605,7 @@ void generate_map()
 
 void print_map()
 {
-    std::ofstream file("sample_layout.ini");
+    std::ofstream file("layout.ini");
 
     file << "// grid\n"
             << 60 << ' ' << 50 << '\n';

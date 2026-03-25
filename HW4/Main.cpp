@@ -24,6 +24,7 @@ std::vector<Enemy> enemies;
 Player* player;
 
 void init_level();
+void init_map();
 void init_entities();
 void draw_level();
 void save_entities_positions();
@@ -31,6 +32,8 @@ void save_entities_positions();
 int main() {
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "BenitoQueRedoble_Homework04");
     init_level();
+    dungen_main(); // dungen.cpp
+    init_map();
 
     player = new Player(Vector2Zero(), 0.0f, 0.0f);
     init_entities();
@@ -141,7 +144,6 @@ int main() {
 void init_level()
 {
     tiles_loaded = 0;
-    rows_loaded = 0;
 
     std::ifstream settings("settings.ini");
     std::string line;
@@ -214,7 +216,23 @@ void init_level()
 
             tiles_loaded++;
         }
-        else if (counter == 2)
+    }
+}
+
+void init_map()
+{
+    rows_loaded = 0;
+
+    std::ifstream settings("layout.ini");
+    std::string line;
+
+    int counter = 0;
+
+    while (std::getline(settings,line))
+    {
+        if (line[0] == '/') continue;
+
+        if (counter == 0)
         {
             // x
             int index1 = line.find(' ');
@@ -258,7 +276,7 @@ void init_level()
             std::cout << "\n";
         }
 
-        tile_size = tiles[0].width;
+    tile_size = tiles[0].width;
     }
 }
 
