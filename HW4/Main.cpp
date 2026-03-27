@@ -88,6 +88,34 @@ int main() {
 
         if (player->HP <= 0) {
             ClearBackground(RED);
+            DrawText("You Lose!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
+            EndDrawing();
+            endGame = true;
+
+            continue;
+        }
+
+        bool are_all_enemies_unalive = true;
+        for (int i = 0; i < enemies.size(); i++)
+        {
+            if (enemies[i].HP > 0)
+            {
+                are_all_enemies_unalive = false;
+                break;
+            }
+        }
+
+        if (are_all_enemies_unalive) {
+            ClearBackground(GREEN);
+            DrawText("You Win!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
+            EndDrawing();
+            endGame = true;
+
+            continue;
+        }
+
+        if (player->HP <= 0) {
+            ClearBackground(RED);
             DrawText("GAME OVER - YOU DIED", WINDOW_WIDTH / 2 - 150, WINDOW_HEIGHT / 2, 30, WHITE);
             endGame = true;
         } 
