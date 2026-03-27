@@ -35,27 +35,19 @@ int main() {
     dungen_main(); // dungen.cpp
     init_map();
 
-    float roomWidthInPixels = 10.0f * tile_size;
-
-    Vector2 playerSpawn = {
-        (rooms[0].x * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.x,
-        (rooms[0].y * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.y
-    };
-
-    Vector2 bossSpawn = {
-        (rooms[boss_room_index].x * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.x,
-        (rooms[boss_room_index].y * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.y
-    };
-    
-    player = new Player(playerSpawn, 0.0f, 0.0f); 
-    player->radius = 20.0f;
-    player->speed = 100.0f;
+   
+    float playerX = WORLD_MIN.x + (rooms[0].x * 10 + 5) * tile_size;
+    float playerY = WORLD_MIN.y + (rooms[0].y * 10 + 5) * tile_size;
+    player = new Player({playerX, playerY}, 20.0f, 200.0f); 
 
     enemies.clear(); 
-    enemies.push_back(Enemy(bossSpawn, 50.0f)); 
+    float bossX = WORLD_MIN.x + (rooms[boss_room_index].x * 10 + 5) * tile_size;
+    float bossY = WORLD_MIN.y + (rooms[boss_room_index].y * 10 + 5) * tile_size;
 
-    player = new Player(Vector2Zero(), 0.0f, 0.0f);
-    init_entities();
+    // Add the Boss to the enemies vector
+    enemies.emplace_back(Vector2{bossX, bossY}, 150.0f); 
+    enemies.back().color = RED; // Distinguish the boss visually
+    enemies.back().HP = 50.0f;  // Give the boss more HP
 
     Camera2D camera_view = {0};
     camera_view.target = player->position;
@@ -96,30 +88,13 @@ int main() {
 
         if (player->HP <= 0) {
             ClearBackground(RED);
-            DrawText("You Lose!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
-            EndDrawing();
+            DrawText("GAME OVER - YOU DIED", WINDOW_WIDTH / 2 - 150, WINDOW_HEIGHT / 2, 30, WHITE);
             endGame = true;
-
-            continue;
-        }
-
-        bool are_all_enemies_unalive = true;
-        for (int i = 0; i < enemies.size(); i++)
-        {
-            if (enemies[i].HP > 0)
-            {
-                are_all_enemies_unalive = false;
-                break;
-            }
-        }
-
-        if (are_all_enemies_unalive) {
+        } 
+        else if (enemies.size() > 0 && enemies[0].HP <= 0) { 
             ClearBackground(GREEN);
-            DrawText("You Win!", WINDOW_WIDTH / 2 - 100, WINDOW_HEIGHT / 2 - 20, 40, WHITE);
-            EndDrawing();
+            DrawText("VICTORY - BOSS DEFEATED", WINDOW_WIDTH / 2 - 150, WINDOW_HEIGHT / 2, 30, WHITE);
             endGame = true;
-
-            continue;
         }
 
         ClearBackground(WHITE);
