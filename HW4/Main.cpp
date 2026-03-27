@@ -35,6 +35,20 @@ int main() {
     dungen_main(); // dungen.cpp
     init_map();
 
+    float roomWidthInPixels = 10.0f * tile_size;
+    Vector2 playerSpawn = {
+        (rooms[0].x * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.x,
+        (rooms[0].y * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.y
+    };
+
+    Vector2 bossSpawn = {
+        (rooms[boss_room_index].x * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.x,
+        (rooms[boss_room_index].y * roomWidthInPixels + roomWidthInPixels / 2.0f) + WORLD_MIN.y
+    };
+
+    player = new Player(playerSpawn, 0.0f, 0.0f);
+    enemies.push_back(Enemy(bossSpawn, 0.0f, 0.0f));
+
     player = new Player(Vector2Zero(), 0.0f, 0.0f);
     init_entities();
 
