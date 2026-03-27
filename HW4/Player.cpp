@@ -55,13 +55,43 @@ void Player::Draw() {
 }
 
 void Player::HandleEntityCollision(Entity* other) {
-    if (other->HP <= 0) return;                 // avoid collisions with unalive entities
+    if (other->entity_type == "Enemy" && other->HP <= 0) return;    // avoid collisions with unalive enemies
 
-    float enemyDistance = Vector2Distance(position, other->position);
+    float distance = Vector2Distance(position, other->position);
 
-    enemyDistance = enemyDistance - (radius + (other->max.x - other->min.x)/2.0f);
+    distance = distance - (radius + (other->max.x - other->min.x)/2.0f);
 
-    if (damageTimer == 0.0f && enemyDistance <= 0.0f) {
+    // if key is in the dungeon and we are checking for collision with key,
+    // and there is a collision,
+    if (is_key_active && other->entity_type == "Key" && distance <= 0.0f)
+    {
+        // make key be held by player
+        other->HandleEntityCollision(this);
+
+        // collect the key
+        has_key = true;
+
+        return;
+    }
+
+    // if lock is in the dungeon and we are checking for collision with lock,
+    // and there is a collision and we have a key,
+    if (is_lock_active && other->entity_type == "Lock" && distance <= 0.0f && has_key)
+    {
+        // open the "doors"
+        other->HandleEntityCollision(this);
+
+        // make key and lock disappear
+        is_key_active = false;
+        is_lock_active = false;
+        
+        // remove key from "inventory"
+        has_key = false;
+
+        return;
+    }
+
+    if (damageTimer == 0.0f && distance <= 0.0f) {
         if (GetCurrentState() == &idle || GetCurrentState() == &moving || GetCurrentState() == &attacking){
             damageQueue = ENEMY_DAMAGE_TO_PLAYER;
             damageTimer = 0.5f;
@@ -74,7 +104,7 @@ void Player::HandleEntityCollision(Entity* other) {
     }
 
     // if attacking, damage enemy if not invulnerable anymore
-    if (GetCurrentState() == &attacking && enemyDistance <= 0.0f && other->damageTimer == 0.0f) {
+    if (GetCurrentState() == &attacking && distance <= 0.0f && other->damageTimer == 0.0f) {
         other->damageQueue = PLAYER_DAMAGE_TO_ENEMY;
         other->damageTimer = 0.5f;
     }
@@ -159,7 +189,7 @@ void Player::HandleWallCollisions() {
 }
 
 Player::Player(Vector2 pos, float rad, float spd) {
-    isPlayer = true;
+    entity_type = "Player";
     
     position = pos;
     radius = rad;
@@ -178,6 +208,8 @@ Player::Player(Vector2 pos, float rad, float spd) {
     dodging.player = this;
 
     SetState(&idle);
+
+    has_key = false;
 }
 
 void Player::SetState(PlayerState* state) {
@@ -189,22 +221,16 @@ void Player::SetState(PlayerState* state) {
     current_state->Enter();
 }
 
-void Player::UpdateCamera(Camera2D* camera_view) {
-    camera_view->target = position;
+void Player::Reset(Vector2 new_pos) {
+    velocity = Vector2Zero();
+    position = new_pos;
 
-    if (WORLD_MAX.x - position.x <= WINDOW_WIDTH / 2)
-        camera_view->offset.x = WINDOW_WIDTH - (WORLD_MAX.x - position.x);
-    else if (position.x - WORLD_MIN.x <= WINDOW_WIDTH / 2)
-        camera_view->offset.x = position.x - WORLD_MIN.x;
-    else
-        camera_view->offset.x = WINDOW_WIDTH / 2;
+    HP = 15.0f;
+    damageTimer = 0.0f;
 
-    if (WORLD_MAX.y - position.y <= WINDOW_HEIGHT / 2)
-        camera_view->offset.y = WINDOW_HEIGHT - (WORLD_MAX.y - position.y);
-    else if (position.y - WORLD_MIN.y <= WINDOW_HEIGHT / 2)
-        camera_view->offset.y = position.y - WORLD_MIN.y;
-    else
-        camera_view->offset.y = WINDOW_HEIGHT / 2;
+    SetState(&idle);
+
+    has_key = false;
 }
 
 PlayerState* Player::GetCurrentState() {

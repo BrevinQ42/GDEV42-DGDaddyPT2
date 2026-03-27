@@ -83,6 +83,8 @@ public:
     PlayerBlocking blocking;
     PlayerDodging dodging;
 
+    bool has_key = false;
+
     Player(Vector2 pos, float rad, float spd);
 
     void Update(float delta_time);
@@ -95,7 +97,7 @@ public:
 
     void HandleWallCollisions();
 
-    void UpdateCamera(Camera2D* camera_view);
+    void Reset(Vector2 new_pos);
 
     PlayerState* GetCurrentState();
 };

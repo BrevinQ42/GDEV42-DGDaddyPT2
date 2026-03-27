@@ -18,7 +18,7 @@ const float WINDOW_WIDTH = 768.0f;
 const float WINDOW_HEIGHT = 640.0f;
 
 const Vector2 WORLD_MIN = {-640.0f, -640.0f};
-const Vector2 WORLD_MAX = {960.0f, 960.0f};
+// const Vector2 WORLD_MAX = {960.0f, 960.0f};
 
 const float ELASTICITY = 0.0f;
 
@@ -30,6 +30,9 @@ int col_count;
 int row_count;
 int rows_loaded;
 int** grid;
+
+bool is_key_active;
+bool is_lock_active;
 
 class Entity;
 
@@ -43,7 +46,7 @@ public:
 
 class Entity {
 public:
-    bool isPlayer = false;
+    std::string entity_type;
 
     Vector2 position;
     Vector2 min;
@@ -68,6 +71,8 @@ public:
     virtual void HandleEntityCollision(Entity* other) = 0;
     
     virtual void HandleWallCollisions() = 0;
+
+    virtual void Reset(Vector2 new_pos) = 0;
 };
 
 #endif

@@ -96,6 +96,8 @@ public:
 
     void rotateTowardsPlayer(Vector2 directionToPlayer);
 
+    void Reset(Vector2 new_pos);
+
     EnemyState* GetCurrentState();
 };
 

@@ -1,6 +1,6 @@
 /*
 |------------------------------------------------------|
-|                 ENEMY STATE MACHINE                 |              
+|                 ENEMY STATE MACHINE                  |              
 |------------------------------------------------------|
 |   This is the file that contains definitions for     |
 |   all the functions declared in the Enemy.hpp        |
@@ -51,7 +51,7 @@ void Enemy::Draw() {
 }
 
 void Enemy::HandleEntityCollision(Entity* other) {
-    if(!other->isPlayer || HP <= 0) return; //only handles player for now
+    if(other->entity_type != "Player" || HP <= 0) return; //only handles player for now
 
     float playerRadius = (other->max.x - other->min.x) / 2.0f;
 
@@ -166,7 +166,10 @@ void Enemy::HandleWallCollisions() {
 }
 
 Enemy::Enemy() {
+    entity_type = "Enemy";
+
     HP = 4.0f;
+    damageTimer = 0.0f;
 
     wandering.enemy = this;
     chasing.enemy = this;
@@ -177,6 +180,8 @@ Enemy::Enemy() {
 }
 
 Enemy::Enemy(Vector2 pos, float spd) {
+    entity_type = "Enemy";
+
     position = pos;
     speed = spd;
 
@@ -185,6 +190,7 @@ Enemy::Enemy(Vector2 pos, float spd) {
     max = {position.x + rect.width / 2.0f, position.y + rect.height / 2.0f};
 
     HP = 4.0f;
+    damageTimer = 0.0f;
 
     wandering.enemy = this;
     chasing.enemy = this;
@@ -201,6 +207,19 @@ void Enemy::SetState(EnemyState* state) {
 
     current_state = state;
     current_state->Enter();
+}
+
+void Enemy::Reset(Vector2 new_pos) {
+    velocity = Vector2Zero();
+    position = new_pos;
+    rect = {position.x, position.y, 50.0f, 50.0f};
+    min = {position.x - rect.width / 2.0f, position.y - rect.height / 2.0f};
+    max = {position.x + rect.width / 2.0f, position.y + rect.height / 2.0f};
+
+    HP = 4.0f;
+    damageTimer = 0.0f;
+
+    SetState(&wandering);
 }
 
 EnemyState* Enemy::GetCurrentState() {
