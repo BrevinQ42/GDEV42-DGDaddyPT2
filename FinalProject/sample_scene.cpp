@@ -4,7 +4,7 @@
 #include "all_scenes.hpp"
 
 int main() {
-    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Random Cafe");
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Random Cafe The Sequel");
 
     InitAudioDevice();
 
@@ -43,7 +43,7 @@ int main() {
     scene_manager.RegisterScene(&end_game_scene, 6);
     scene_manager.RegisterScene(&name_entry_scene, 7);
 
-    scene_manager.SwitchScene(7);
+    scene_manager.SwitchScene(0);
 
     Music main = LoadMusicStream("main.mp3");
 
@@ -82,8 +82,8 @@ int main() {
 
         if (time_played > 1.0f){
             time_played = 0.0f;
-            StopMusicStream(main);
-            settings_scene.play_music = false;
+            //StopMusicStream(main);
+            //settings_scene.play_music = false;
         } 
 
         EndDrawing();

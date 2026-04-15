@@ -1,7 +1,7 @@
 #include <raylib.h>
 #include <string>
 
-const float WINDOW_WIDTH = 800.0f, WINDOW_HEIGHT = 600.0f;
+const float WINDOW_WIDTH = 768.0f, WINDOW_HEIGHT = 768.0f;
 
 // Struct to encapsulate our UI library
 struct UiLibrary

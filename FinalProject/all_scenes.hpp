@@ -193,7 +193,7 @@ public:
             accumulator -= TIMESTEP;
         }
 
-        if (uiLibrary.ButtonIcon(0, {770, 30}, pause))
+        if (uiLibrary.ButtonIcon(0, {740, 40}, pause))
         {
             std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
