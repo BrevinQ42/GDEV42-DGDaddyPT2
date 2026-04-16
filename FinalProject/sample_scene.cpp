@@ -4,7 +4,7 @@
 #include "all_scenes.hpp"
 
 int main() {
-    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Random Cafe");
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Random Cafe The Sequel");
 
     InitAudioDevice();
 
@@ -82,8 +82,8 @@ int main() {
 
         if (time_played > 1.0f){
             time_played = 0.0f;
-            StopMusicStream(main);
-            settings_scene.play_music = false;
+            //StopMusicStream(main);
+            //settings_scene.play_music = false;
         } 
 
         EndDrawing();

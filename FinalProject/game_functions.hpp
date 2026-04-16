@@ -72,7 +72,7 @@ void init_textures()
 {
     bean = ResourceManager::GetInstance()->GetTexture("bean.png");
     hot_coffee = ResourceManager::GetInstance()->GetTexture("hot_coffee.png");
-    iced_coffee = ResourceManager::GetInstance()->GetTexture("iced_coffe.png");
+    iced_coffee = ResourceManager::GetInstance()->GetTexture("iced_coffee.png");
     coffee_tools = ResourceManager::GetInstance()->GetTexture("coffee_tools.png");
 }
 
