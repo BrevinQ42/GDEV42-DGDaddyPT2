@@ -288,7 +288,35 @@ public:
             if (uiLibrary.Button(0, button_name, 250.0f))
             {
                 if (button_name == "Next Day")
+                {
                     day++;
+
+                    // if there are still drinks to be unlocked,
+                    if (drinks_on_menu < 4)
+                    {
+                        // 50% chance at unlocking a new drink
+                        if (GetRandomValue(0,1))
+                        {
+                            // choose a drink to be unlocked
+                            int index = GetRandomValue(drinks_on_menu, 3);
+
+                            if (drinks_on_menu != index)
+                            {
+                                // swap order to make new drink unlocked
+                                std::string temp = drinks[drinks_on_menu];
+                                drinks[drinks_on_menu] = drinks[index];
+                                drinks[index] = temp;
+                            }
+
+                            std::cout << "Unlocked new drink: " << drinks[drinks_on_menu] << "\n";
+                            drinks_on_menu++;
+                        }
+                        else
+                            std::cout << "No drink unlocked\n";
+                    }
+                    else
+                        std::cout << "No more drinks to be unlocked\n";
+                }
                 
                 registry.clear();
 
@@ -301,6 +329,12 @@ public:
         {
             if (uiLibrary.Button(0, button_name, 250.0f))
             {
+                registry.clear();
+
+                // reset values
+                score = 0;
+                day = 1;
+
                 if (GetSceneManager() != nullptr) {
                     GetSceneManager()->SwitchScene(6);
                 }

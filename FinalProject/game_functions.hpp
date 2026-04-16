@@ -17,17 +17,18 @@ const float radius = 16.0f;
 const float item_radius = 12.0f;
 const float interact_range = GRID_SIZE * 1.5f;
 const int fail_threshold = 3;
-const float time_per_day = 180.0f;
 const float head_start_time = 15.0f;
+float time_per_day = 15.0f;
 
 float brew_time = 15.0f;
 float consume_time = 15.0f;
 
 int day = 1;
 int total_days = 5;
+bool is_first_run = true;
 
 int customers_not_served = 0;
-float total_customers_today[6] = {0, 8, 10, 12, 15, 18};
+float total_customers_today[6] = {0, 4, 6, 8, 10, 12};
 float customers_so_far = 0;
 
 float score = 0;
@@ -92,6 +93,8 @@ void init_entities(entt::registry& registry, entt::entity& player, entt::entity&
     // spawn timer for customers
     spawn_timer = registry.create();
     registry.emplace<TimerComponent>(spawn_timer, head_start_time); // time before first customer
+
+    time_per_day = total_customers_today[day] * 25.0f + head_start_time;
 
 //FOR TESTING
     // counters
@@ -282,8 +285,13 @@ void init_entities(entt::registry& registry, entt::entity& player, entt::entity&
 
 void reserve_memory()
 {
-    queue.reserve(total_customers_today[5]);
-    available_tables.reserve(5);
+    if (is_first_run)
+    {
+        queue.reserve(total_customers_today[5]);
+        available_tables.reserve(5);   
+
+        is_first_run = false;
+    }
 }
 
 void read_player_input(entt::registry& registry, entt::entity& player)
@@ -676,15 +684,21 @@ void update_customers(entt::registry& registry)
                     continue;
                 }
 
+                ChairComponent& chair = registry.get<ChairComponent>(dining_table->chair1);
+                if (chair.customer != entt::null)
+                {
+                    std::cout << "Table has a customer\n";
+                    continue;
+                }
+
+                chair.customer = entity;
+
                 std::cout << "Assigned customer to table";
 
                 // put customer on table's chair
                 PositionComponent& customer_pos = registry.get<PositionComponent>(entity);
                 PositionComponent& chair_pos = registry.get<PositionComponent>(dining_table->chair1);
                 customer_pos.position = chair_pos.position;
-
-                ChairComponent& chair = registry.get<ChairComponent>(dining_table->chair1);
-                chair.customer = entity;
 
                 std::cout << ", teleported them to their seat";
 
@@ -715,6 +729,9 @@ void update_customers(entt::registry& registry)
 
                 std::cout << "Table not available anymore\n";
 
+                // remove customer from queue
+                queue.erase(queue.begin());
+
                 continue;
             }
 
@@ -739,6 +756,8 @@ void update_customers(entt::registry& registry)
                     std::cout << "Too many customers left\n";
                     // lose
                     button_name = "Redo Day";
+
+                    queue.clear();
 
                     score -= day_score;
                     score -= 25;
@@ -768,6 +787,8 @@ void update_customers(entt::registry& registry)
                     std::cout << "Too many customers left\n";
                     // lose
                     button_name = "Redo Day";
+
+                    queue.clear();
 
                     score -= day_score;
                     score -= 25;
@@ -1220,4 +1241,7 @@ void draw_level(entt::registry& registry, entt::entity& player)
 
     // score
     DrawText(TextFormat("Score: %04i",int(score)), 300, 30, 30, BLACK);
+
+    // TEMP
+    DrawText(TextFormat("Queue size: %02i",int(queue.size())), 10, 10, 20, BLACK);
 }

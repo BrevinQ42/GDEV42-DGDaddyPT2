@@ -43,7 +43,7 @@ int main() {
     scene_manager.RegisterScene(&end_game_scene, 6);
     scene_manager.RegisterScene(&name_entry_scene, 7);
 
-    scene_manager.SwitchScene(7);
+    scene_manager.SwitchScene(0);
 
     Music main = LoadMusicStream("main.mp3");
 
