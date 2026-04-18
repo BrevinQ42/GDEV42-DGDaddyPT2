@@ -67,25 +67,22 @@ void CustomerOrdering::assign_customer_to_table()
     int index = GetRandomValue(0, available_tables.size());
     c.table = available_tables[index];
 
+// last checks in case tables become unavailable
     DiningTableComponent* dining_table = registry.try_get<DiningTableComponent>(available_tables[index]);
-
     if (!dining_table)
     {
-        std::cout << "~ ERROR: Failed to get dining table\n";
         return;
     }
 
     ChairComponent& chair = registry.get<ChairComponent>(dining_table->chair1);
     if (chair.customer != entt::null)
     {
-        std::cout << "~ ERROR: Table has a customer\n";
         return;
     }
 
     TableComponent& table = registry.get<TableComponent>(available_tables[index]);
     if (table.hasItemOnTop)
     {
-    	std::cout << "~ ERROR: Table has an item on top\n";
     	return;
     }
 

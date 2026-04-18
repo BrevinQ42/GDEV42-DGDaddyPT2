@@ -229,6 +229,13 @@ void init_entities()
     registry.emplace<DiningTableComponent>(dining_table5, chair5);
     registry.emplace<ColorComponent>(dining_table5, BROWN);
 
+// MAKE DINING TABLES AVAILABLE
+    available_tables.push_back(dining_table);
+    available_tables.push_back(dining_table2);
+    available_tables.push_back(dining_table3);
+    available_tables.push_back(dining_table4);
+    available_tables.push_back(dining_table5);
+
     // item
     entt::entity stack_of_cups = registry.create();
     registry.emplace<PositionComponent>(stack_of_cups, Vector2{4.5f * GRID_SIZE, 6.5f * GRID_SIZE});
@@ -339,6 +346,9 @@ void read_player_input()
             InteractableComponent& i = registry.get<InteractableComponent>(placeable.table);
             i.isEnabled = true;
 
+            // make table available
+            available_tables.push_back(placeable.table);
+
             // update placeable's "table" to null
             placeable.table = entt::null;
 
@@ -377,6 +387,11 @@ void read_player_input()
 
                 InteractableComponent& i = registry.get<InteractableComponent>(placeable.table);
                 i.isEnabled = true;
+
+                // make table available if dining table
+                DiningTableComponent* dining = registry.try_get<DiningTableComponent>(placeable.table);
+                if (dining)
+                    available_tables.push_back(placeable.table);
 
                 // update placeable's "table" to null
                 placeable.table = entt::null;
@@ -581,6 +596,21 @@ void read_player_input()
             if (table)
             {
                 table->hasItemOnTop = true;
+
+                int index = -1;
+
+                // make table not available
+                for (int i = 0; i < available_tables.size(); i++)
+                {
+                    if (available_tables[i] == interactor.hot_item)
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+
+                if (index > -1)
+                    available_tables.erase(available_tables.begin() + index);
 
                 // make table not interactable
                 InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
@@ -982,8 +1012,6 @@ void draw_level()
     }
 
     // obstacles
-    available_tables.clear();
-
     auto obstacle = registry.view<TableComponent>();
     for (auto entity : obstacle)
     {
@@ -1001,17 +1029,6 @@ void draw_level()
 
         DrawRectangleV(Vector2Subtract(p.position, {square.half_size, square.half_size}),
                         {square.half_size * 2.0f, square.half_size * 2.0f}, color);
-
-        DiningTableComponent* dining = registry.try_get<DiningTableComponent>(entity);
-        if (dining)
-        {
-            ChairComponent& chair = registry.get<ChairComponent>(dining->chair1);
-            TableComponent& table = registry.get<TableComponent>(entity);
-
-            // if no customer and nothing on the table
-            if (chair.customer == entt::null && !table.hasItemOnTop)
-                available_tables.push_back(entity);
-        }
     }
 
     auto chair = registry.view<ChairComponent>();
@@ -1119,7 +1136,4 @@ void draw_level()
 
     // score
     DrawText(TextFormat("Score: %04i",int(score)), 300, 30, 30, BLACK);
-
-    // TEMP
-    DrawText(TextFormat("Queue size: %02i",int(queue.size())), 10, 10, 20, BLACK);
 }
