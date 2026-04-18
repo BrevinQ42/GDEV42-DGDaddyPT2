@@ -162,7 +162,7 @@ public:
 
         SetTargetFPS(FPS);
         init_textures();
-        init_entities(registry, player, spawn_timer);
+        init_entities();
         reserve_memory();
         accumulator = 0;
         day_score = 0;
@@ -177,18 +177,16 @@ public:
     void Update() override {
         float delta_time = GetFrameTime();
 
-        read_player_input(registry, player);
-
-        // Physics Step
         accumulator += delta_time;
         while(accumulator >= TIMESTEP)
         {
-            update_customers(registry);
-            affect_velocities(registry);
-            move_entities(registry);
-            handle_collisions(registry);
-            get_hot_items(registry);
-            update_timers(registry, spawn_timer);
+            read_player_input();
+            update_customers();
+            affect_velocities();
+            move_entities();
+            handle_collisions();
+            get_hot_items();
+            update_timers();
 
             accumulator -= TIMESTEP;
         }
@@ -213,7 +211,7 @@ public:
     }
 
     void Draw() override {
-        draw_level(registry, player);
+        draw_level();
 
         if (button_name != "")
         {

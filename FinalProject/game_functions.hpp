@@ -4,8 +4,7 @@
 #include <map>
 #include <vector>
 
-#include "entt.hpp"
-#include "components.hpp"
+#include "customer.cpp"
 
 const float FPS = 60;
 const float TIMESTEP = 1/FPS;
@@ -13,7 +12,6 @@ const float FRICTION = 1.5f;
 const float e = 0.25f;
 
 const float GRID_SIZE = 50;
-const float radius = 16.0f;
 const float item_radius = 12.0f;
 const float interact_range = GRID_SIZE * 1.5f;
 const int fail_threshold = 3;
@@ -21,7 +19,6 @@ const float head_start_time = 15.0f;
 float time_per_day = 15.0f;
 
 float brew_time = 15.0f;
-float consume_time = 15.0f;
 
 int day = 1;
 int total_days = 5;
@@ -42,8 +39,6 @@ Texture hot_coffee;
 Texture coffee_tools;
 Texture iced_coffee;
 
-
-entt::registry registry;
 entt::entity player;
 entt::entity spawn_timer;
 
@@ -65,8 +60,7 @@ std::map<std::string, int> price =
     {"cappucino", 12},
 };
 
-std::vector<entt::entity> queue;
-std::vector<entt::entity> available_tables;
+std::vector<Customer*> customers;
 
 void init_textures()
 {
@@ -76,7 +70,7 @@ void init_textures()
     coffee_tools = ResourceManager::GetInstance()->GetTexture("coffee_tools.png");
 }
 
-void init_entities(entt::registry& registry, entt::entity& player, entt::entity& spawn_timer)
+void init_entities()
 {
     // player
     player = registry.create();
@@ -287,6 +281,7 @@ void reserve_memory()
 {
     if (is_first_run)
     {
+        customers.reserve(total_customers_today[5]);
         queue.reserve(total_customers_today[5]);
         available_tables.reserve(5);   
 
@@ -294,7 +289,7 @@ void reserve_memory()
     }
 }
 
-void read_player_input(entt::registry& registry, entt::entity& player)
+void read_player_input()
 {
     //MOVEMENT
     Vector2 forces = Vector2Zero(); // every frame set the forces to a 0 vector
@@ -558,23 +553,12 @@ void read_player_input(entt::registry& registry, entt::entity& player)
                 // if holding drink and drink is the customer's order
                 if (drink && drink->name == customer->order)
                 {
-                    // make customer not interactable
-                    InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
-                    i.isEnabled = false;
-                    i.isHot = false;
-
                     // put drink on customer
                     PositionComponent& drink_pos = registry.get<PositionComponent>(holder.held_item);
                     PositionComponent& customer_pos = registry.get<PositionComponent>(interactor.hot_item);
                     drink_pos.position = Vector2Add(customer_pos.position, {radius / 1.5f, radius / 1.5f});
 
                     customer->drink = holder.held_item;
-
-                    // let customer eat
-                    customer->state = "Eating";
-
-                    TimerComponent& timer = registry.get<TimerComponent>(interactor.hot_item);
-                    timer.time = consume_time;
 
                     // remove item from hands of holder
                     HoldableComponent& holdable = registry.get<HoldableComponent>(holder.held_item);
@@ -655,97 +639,50 @@ void read_player_input(entt::registry& registry, entt::entity& player)
     }
 }
 
-void update_customers(entt::registry& registry)
+void update_customers()
 {
     int customer_count = 0;
 
-    auto customers = registry.view<CustomerComponent>();
-    for (auto entity : customers)
+    for (int i = 0; i < customers.size(); i++)
     {
+        if (customers[i] == nullptr) continue;
+
         customer_count++;
 
-        CustomerComponent& customer = registry.get<CustomerComponent>(entity);
-
-        if (customer.state == "Queuing")
+        Customer* customer = customers[i];
+        customer->Update(TIMESTEP);
+        
+        if (customer->has_left)
         {
-            if (available_tables.size() > 0)
+            if (customer->GetCurrentState() == "Eating")
             {
-                std::cout << "There is a free table!\n";
+                CustomerComponent& c = registry.get<CustomerComponent>(customers[i]->entity);
 
-                // assign table
-                int index = GetRandomValue(0, available_tables.size());
-                customer.table = available_tables[index];
+                TableComponent& table = registry.get<TableComponent>(c.table);
+                table.hasItemOnTop = true;
 
-                DiningTableComponent* dining_table = registry.try_get<DiningTableComponent>(available_tables[index]);
+                PositionComponent& table_pos = registry.get<PositionComponent>(c.table);
+             
+                // put payment on table   
+                entt::entity payment = registry.create();
+                registry.emplace<PositionComponent>(payment, table_pos.position);
+                registry.emplace<InteractableComponent>(payment, true, false);
+                registry.emplace<MoneyComponent>(payment, price[c.order] * (1.0f + c.patience / 100.0f));
+                registry.emplace<PlaceableComponent>(payment, c.table);
 
-                if (!dining_table)
-                {
-                    std::cout << "Failed to get dining table\n";
-                    continue;
-                }
-
-                ChairComponent& chair = registry.get<ChairComponent>(dining_table->chair1);
-                if (chair.customer != entt::null)
-                {
-                    std::cout << "Table has a customer\n";
-                    continue;
-                }
-
-                chair.customer = entity;
-
-                std::cout << "Assigned customer to table";
-
-                // put customer on table's chair
-                PositionComponent& customer_pos = registry.get<PositionComponent>(entity);
-                PositionComponent& chair_pos = registry.get<PositionComponent>(dining_table->chair1);
-                customer_pos.position = chair_pos.position;
-
-                std::cout << ", teleported them to their seat";
-
-                // select an order and set state to ordering
-                int i = GetRandomValue(0, drinks_on_menu-1);
-
-                std::cout << ", rng worked";
-
-                // source: https://www.w3schools.com/cpp/cpp_exceptions.asp
-                try {
-                    customer.order = drinks[i];
-                }
-                catch (...) {
-                    std::cout << ", error occurred with getting the drink\n";
-                    continue;
-                }
-                
-                customer.state = "Ordering";
-
-                std::cout << ", and customer orders " << drinks[i] << "\n";
-
-                // make customer interactable
-                InteractableComponent& interactable = registry.get<InteractableComponent>(entity);
-                interactable.isEnabled = true;
-
-                // make table unavailable
-                available_tables.erase(available_tables.begin() + index);
-
-                std::cout << "Table not available anymore\n";
-
-                // remove customer from queue
-                queue.erase(queue.begin());
-
-                continue;
+                registry.emplace<SpriteComponent>(payment, coffee_tools,
+                                                    std::vector<Rectangle>{
+                                                        {32,0,16,16}
+                                                    }, 0);
             }
-
-            customer.patience -= TIMESTEP;
-
-            if (customer.patience <= 0.0f)
+            else
             {
-                // remove first customer in queue
-                // (they will definitely be the first to lose patience)
-                // source: https://www.w3schools.com/cpp/ref_vector_erase.asp
-                queue.erase(queue.begin());
-
-                // customer leaves
-                registry.destroy(entity);
+                if (customer->GetCurrentState() == "Queuing")
+                {
+                    // remove first customer in queue
+                    // (they will definitely be the first to lose patience)
+                    queue.erase(queue.begin());
+                }
 
                 std::cout << "Customer lost patience\n";
 
@@ -763,39 +700,14 @@ void update_customers(entt::registry& registry)
                     score -= 25;
                 }
             }
+
+            // customer leaves
+            registry.destroy(customers[i]->entity);
+
+            // delete pointer
+            delete customers[i];
+            customers[i] = nullptr;
         }
-        else if (customer.state == "Ordering")
-        {
-            customer.patience -= TIMESTEP;
-
-            if (customer.patience <= 0.0f)
-            {
-                DiningTableComponent& dining_table = registry.get<DiningTableComponent>(customer.table);
-                ChairComponent& chair = registry.get<ChairComponent>(dining_table.chair1);
-
-                chair.customer = entt::null;
-
-                // customer leaves
-                registry.destroy(entity);
-
-                std::cout << "Customer lost patience\n";
-
-                customers_not_served++;
-
-                if (customers_not_served == fail_threshold)
-                {
-                    std::cout << "Too many customers left\n";
-                    // lose
-                    button_name = "Redo Day";
-
-                    queue.clear();
-
-                    score -= day_score;
-                    score -= 25;
-                }
-            }
-        }
-        // else, is eating
     }
 
     if (customer_count == 0 && customers_so_far == total_customers_today[day])
@@ -808,7 +720,7 @@ void update_customers(entt::registry& registry)
     }
 }
 
-void affect_velocities(entt::registry& registry)
+void affect_velocities()
 {
     // make acceleration and friction affect velocity
     auto affect_velocity = registry.view<AccelerationComponent, PhysicsComponent>();
@@ -823,7 +735,7 @@ void affect_velocities(entt::registry& registry)
     }
 }
 
-void move_entities(entt::registry& registry)
+void move_entities()
 {
     auto move = registry.view<MoveComponent>();
     for (auto entity : move)
@@ -835,7 +747,7 @@ void move_entities(entt::registry& registry)
     }
 }
 
-void circle_rectangle_collision(entt::registry& registry, entt::entity& circle, entt::entity& rectangle)
+void circle_rectangle_collision(entt::entity& circle, entt::entity& rectangle)
 {
     // circle components
     PhysicsComponent& c_phy = registry.get<PhysicsComponent>(circle);
@@ -902,7 +814,7 @@ void circle_rectangle_collision(entt::registry& registry, entt::entity& circle, 
     }
 }
 
-void handle_collisions(entt::registry& registry)
+void handle_collisions()
 {
     // moving circle colliding with squares
     auto moving_physics = registry.view<PhysicsComponent, MoveComponent>();
@@ -917,12 +829,12 @@ void handle_collisions(entt::registry& registry)
             if (e1 == e2)
                 continue;
 
-            circle_rectangle_collision(registry, e1, e2);
+            circle_rectangle_collision(e1, e2);
         }
     }
 }
 
-void get_hot_items(entt::registry& registry)
+void get_hot_items()
 {
     auto interactors = registry.view<InteractorComponent>();
     for (auto e : interactors)
@@ -987,7 +899,7 @@ void get_hot_items(entt::registry& registry)
     }
 }
 
-void update_timers(entt::registry& registry, entt::entity& spawn_timer)
+void update_timers()
 {
     auto timer = registry.view<TimerComponent>();
     for (auto entity : timer)
@@ -1004,25 +916,25 @@ void update_timers(entt::registry& registry, entt::entity& spawn_timer)
 
                 if (entity == spawn_timer)
                 {
-                    // bring customer to queue
-                    entt::entity new_customer = registry.create();
-                    registry.emplace<CircleComponent>(new_customer, radius);
-                    registry.emplace<PositionComponent>(new_customer, Vector2{-radius, -radius});
-                    registry.emplace<MoveComponent>(new_customer, Vector2Zero());
-                    registry.emplace<DirectionComponent>(new_customer, Vector2{0.0f, 1.0f});
-                    registry.emplace<InteractableComponent>(new_customer, false, false);
-                    registry.emplace<TimerComponent>(new_customer, 0.0f);
-                    registry.emplace<CustomerComponent>(new_customer, 100.0f, "Queuing", "", entt::null, entt::null);
+                    std::cout << "Choosing customer's drink..\n";
 
-                    queue.push_back(new_customer);
+                    int i = GetRandomValue(0, drinks_on_menu-1);
+
+                    std::cout << "Spawning customer..\n";
+
+                    // bring customer to queue
+                    queue.emplace_back();
+                    queue.back() = new Customer(drinks[i]);
+
+                    std::cout << "Customer joined the queue\n";
+
+                    customers.push_back(queue.back());
 
                     customers_so_far++;
 
                     // set timer for next customer
                     if (total_customers_today[day] - customers_so_far > 0)
                         ent_timer.time = (time_per_day - head_start_time) / (total_customers_today[day] - customers_so_far);
-
-                    std::cout << "Customer joined the queue\n";
 
                     continue;
                 }
@@ -1045,49 +957,12 @@ void update_timers(entt::registry& registry, entt::entity& spawn_timer)
 
                     continue;
                 }
-
-                CustomerComponent* customer = registry.try_get<CustomerComponent>(entity);
-                if (customer)
-                {
-                    TableComponent& table = registry.get<TableComponent>(customer->table);
-                    table.hasItemOnTop = true;
-
-                    InteractableComponent& i = registry.get<InteractableComponent>(customer->table);
-                    i.isEnabled = false;
-                    i.isHot = false;
-
-                    PositionComponent& table_pos = registry.get<PositionComponent>(customer->table);
-
-                    // put payment on table
-                    entt::entity payment = registry.create();
-                    registry.emplace<PositionComponent>(payment, table_pos.position);
-                    registry.emplace<InteractableComponent>(payment, true, false);
-                    registry.emplace<MoneyComponent>(payment, price[customer->order] * (1.0f + customer->patience / 100.0f));
-                    registry.emplace<PlaceableComponent>(payment, customer->table);
-
-                    registry.emplace<SpriteComponent>(payment, coffee_tools,
-                                                        std::vector<Rectangle>{
-                                                            {32,0,16,16}
-                                                        }, 0);
-                    // destroy drink
-                    registry.destroy(customer->drink);
-
-                    // remove customer from chair
-                    DiningTableComponent& dining_table = registry.get<DiningTableComponent>(customer->table);
-                    ChairComponent& chair = registry.get<ChairComponent>(dining_table.chair1);
-                    chair.customer = entt::null;
-
-                    // destroy customer
-                    registry.destroy(entity);
-
-                    continue;
-                }
             }
         }
     }
 }
 
-void draw_level(entt::registry& registry, entt::entity& player)
+void draw_level()
 {
     // with sprites, do: view<sprite, __> where __ is the type of thing it is
     // (e.g. floor, object, interactable, customer, player) or smth like that
@@ -1209,18 +1084,21 @@ void draw_level(entt::registry& registry, entt::entity& player)
     }
 
     // customers
-    auto customer = registry.view<CustomerComponent>();
-    for (auto entity : customer)
+    for (int i = 0; i < customers.size(); i++)
     {
+        if (customers[i] == nullptr) continue;
+
+        entt::entity entity = customers[i]->entity;
+
         PositionComponent& pos = registry.get<PositionComponent>(entity);
         CircleComponent& rad = registry.get<CircleComponent>(entity);
-        InteractableComponent& i = registry.get<InteractableComponent>(entity);
+        InteractableComponent& inter = registry.get<InteractableComponent>(entity);
         CustomerComponent& c = registry.get<CustomerComponent>(entity);
 
-        if (i.isHot) DrawCircleV(pos.position, rad.radius, PURPLE);
+        if (inter.isHot) DrawCircleV(pos.position, rad.radius, PURPLE);
         else DrawCircleV(pos.position, rad.radius, DARKPURPLE);
 
-        if (c.state == "Ordering")
+        if (customers[i]->GetCurrentState() == "Ordering")
             DrawText(TextFormat("%s", c.order.c_str()), pos.position.x - 10, pos.position.y - 20, 20, BLACK);
     }
 

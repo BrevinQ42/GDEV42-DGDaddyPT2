@@ -125,7 +125,6 @@ struct TimerComponent
 struct CustomerComponent
 {
 	float patience;
-	std::string state;
 	std::string order;
 	entt::entity table;
 	entt::entity drink;
