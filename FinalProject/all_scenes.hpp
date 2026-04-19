@@ -161,15 +161,20 @@ public:
         srand(time(0));
 
         SetTargetFPS(FPS);
-        init_textures();
-        init_entities();
-        reserve_memory();
-        accumulator = 0;
-        day_score = 0;
-        button_name = "";
 
-        customers_not_served = 0;
-        customers_so_far = 0;
+        if (!is_unpaused)
+        {
+            init_textures();
+            init_entities();
+            reserve_memory();
+            accumulator = 0;
+            day_score = 0;
+            button_name = "";
+
+            customers_not_served = 0;
+            customers_so_far = 0;
+        }
+        else is_unpaused = false;
     }   
 
     void End() override {}
@@ -239,7 +244,8 @@ public:
         {
             std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
-                GetSceneManager()->SwitchScene(5);
+                is_unpaused = true;
+                GetSceneManager()->SwitchScene(1);
             }
         }
         if (uiLibrary.Button(1, "Main Menu"))
@@ -328,10 +334,6 @@ public:
             if (uiLibrary.Button(0, button_name, 250.0f))
             {
                 registry.clear();
-
-                // reset values
-                score = 0;
-                day = 1;
 
                 if (GetSceneManager() != nullptr) {
                     GetSceneManager()->SwitchScene(6);
@@ -519,6 +521,10 @@ public:
             std::ofstream file("leaderboard.txt");
             file << new_leaderboard;
             file.close();
+
+            // reset values
+            score = 0;
+            day = 1;
 
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(3);

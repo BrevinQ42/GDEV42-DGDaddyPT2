@@ -16,7 +16,9 @@ const float item_radius = 12.0f;
 const float interact_range = GRID_SIZE * 1.5f;
 const int fail_threshold = 3;
 const float head_start_time = 15.0f;
-float time_per_day = 15.0f;
+const float customer_spawn_time = 25.0f;
+
+bool is_unpaused = false;
 
 float brew_time = 15.0f;
 
@@ -87,8 +89,6 @@ void init_entities()
     // spawn timer for customers
     spawn_timer = registry.create();
     registry.emplace<TimerComponent>(spawn_timer, head_start_time); // time before first customer
-
-    time_per_day = total_customers_today[day] * 25.0f + head_start_time;
 
 //FOR TESTING
     // counters
@@ -753,6 +753,8 @@ void update_customers()
 
     if (customer_count == 0 && customers_so_far == total_customers_today[day])
     {
+        customers.clear();
+
         // end day / win
         if (day == total_days)
             button_name = "End Game";
@@ -975,7 +977,7 @@ void update_timers()
 
                     // set timer for next customer
                     if (total_customers_today[day] - customers_so_far > 0)
-                        ent_timer.time = (time_per_day - head_start_time) / (total_customers_today[day] - customers_so_far);
+                        ent_timer.time = customer_spawn_time;
 
                     continue;
                 }
@@ -1146,5 +1148,9 @@ void draw_level()
     }
 
     // score
-    DrawText(TextFormat("Score: %04i",int(score)), 300, 30, 30, BLACK);
+    DrawText(TextFormat("Score Today: %04i",int(day_score)), 250, 30, 30, BLACK);
+
+    //TEMP
+    DrawText(TextFormat("Customers: %02i", customers.size()), 10, 10, 20, BLACK);
+    DrawText(TextFormat("Queue: %02i", queue.size()), 10, 40, 20, BLACK);
 }
