@@ -65,27 +65,21 @@ void CustomerOrdering::assign_customer_to_table()
 
 	// assign table
     int index = GetRandomValue(0, available_tables.size());
-    c.table = available_tables[index];
+    available_tables.erase(available_tables.begin() + index);
 
-// last checks in case tables become unavailable
+	// last checks in case tables unavailable
     DiningTableComponent* dining_table = registry.try_get<DiningTableComponent>(available_tables[index]);
-    if (!dining_table)
-    {
-        return;
-    }
+    if (!dining_table) return;
 
     ChairComponent& chair = registry.get<ChairComponent>(dining_table->chair1);
-    if (chair.customer != entt::null)
-    {
-        return;
-    }
+    if (chair.customer != entt::null) return;
 
     TableComponent& table = registry.get<TableComponent>(available_tables[index]);
-    if (table.hasItemOnTop)
-    {
-    	return;
-    }
+    if (table.hasItemOnTop) return;
 
+    // passed last checks
+
+    c.table = available_tables[index];
     chair.customer = customer->entity;
 
     std::cout << "Assigned customer to table";
@@ -100,9 +94,6 @@ void CustomerOrdering::assign_customer_to_table()
 	// make customer interactable
     InteractableComponent& interactable = registry.get<InteractableComponent>(customer->entity);
     interactable.isEnabled = true;
-
-    // make table unavailable
-    available_tables.erase(available_tables.begin() + index);
 
     std::cout << "Table not available anymore\n";
 
@@ -150,7 +141,24 @@ void CustomerQueuing::Update(float delta_time)
 	c.patience -= delta_time;
 
 	if (c.patience <= 0.0f)
+	{
+		int index = -1;
+
+		// remove customer in queue
+		for (int i = 0; i < queue.size(); i++)
+		{
+			if (queue[i] == customer)
+			{
+				index = i;
+				break;
+			}
+		}
+
+		if (index > -1)
+        	queue.erase(queue.begin() + index);
+
 		customer->has_left = true;
+	}
 }
 
 void CustomerOrdering::Update(float delta_time)

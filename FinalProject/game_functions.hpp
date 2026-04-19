@@ -704,17 +704,24 @@ void update_customers()
                                                     std::vector<Rectangle>{
                                                         {32,0,16,16}
                                                     }, 0);
+
+                // customer leaves
+                registry.destroy(customers[i]->entity);
+
+                // delete pointer
+                delete customers[i];
+                customers[i] = nullptr;
             }
             else
             {
-                if (customer->GetCurrentState() == "Queuing")
-                {
-                    // remove first customer in queue
-                    // (they will definitely be the first to lose patience)
-                    queue.erase(queue.begin());
-                }
-
                 std::cout << "Customer lost patience\n";
+
+                // customer leaves
+                registry.destroy(customers[i]->entity);
+
+                // delete pointer
+                delete customers[i];
+                customers[i] = nullptr;
 
                 customers_not_served++;
 
@@ -726,17 +733,21 @@ void update_customers()
 
                     queue.clear();
 
+                    for (int i = 0; i < customers.size(); i++)
+                    {
+                        if (customers[i] != nullptr)
+                        {
+                            delete customers[i];
+                            customers[i] = nullptr;
+                        }
+                    }
+
+                    customers.clear();
+
                     score -= day_score;
                     score -= 25;
                 }
             }
-
-            // customer leaves
-            registry.destroy(customers[i]->entity);
-
-            // delete pointer
-            delete customers[i];
-            customers[i] = nullptr;
         }
     }
 
