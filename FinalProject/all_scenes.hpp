@@ -258,7 +258,35 @@ public:
     }
 
     void Draw() override {
-        DrawText("Game Paused", 300, 300, 30, BLACK);
+        DrawText("GAME PAUSED", 280, 300, 30, BLACK);
+
+        // recipes
+        DrawText("Recipes", 340, 360, 24, BLACK);
+        DrawText("Water Pitcher + Empty Cup = Water Drink", 20, 400, 16, BLACK);
+        DrawText("Water Pitcher + Coffee Bean + Empty Cup -> Coffee Machine = Espresso", 20, 430, 16, BLACK);
+
+        if (drinks_on_menu >= 3)
+        {
+            if (drinks[2] == "americano")
+                DrawText("Hot Water + Espresso = Americano", 20, 460, 16, BLACK);
+            else if (drinks[2] == "cappuccino")
+                DrawText("Milk Jug + Espresso = Capuccino", 20, 460, 16, BLACK);
+
+            if (drinks_on_menu == 4)
+            {
+                if (drinks[3] == "americano")
+                    DrawText("Hot Water + Espresso = Americano", 20, 490, 16, BLACK);
+                else if (drinks[3] == "cappuccino")
+                    DrawText("Milk Jug + Espresso = Capuccino", 20, 490, 16, BLACK);
+            }
+            else
+                DrawText("???", 20, 490, 16, DARKGRAY);
+        }
+        else
+        {
+            DrawText("???", 20, 460, 16, DARKGRAY);
+            DrawText("???", 20, 490, 16, DARKGRAY);
+        }
     }
 };
 

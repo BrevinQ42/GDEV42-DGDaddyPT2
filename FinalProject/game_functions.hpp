@@ -1069,6 +1069,43 @@ void draw_level()
 
         DrawRectangleV(Vector2Subtract(p.position, {GRID_SIZE * 0.375f, GRID_SIZE * 0.375f}),
                         {GRID_SIZE * 0.75f, GRID_SIZE * 0.75f}, color);
+
+        TimerComponent& brew_timer = registry.get<TimerComponent>(entity);
+        if (brew_timer.time > 0.0f)
+            DrawText(TextFormat("%02f s", brew_timer.time), p.position.x + 40, p.position.y - 40, 12, BLACK);
+        else
+        {
+            InteractableComponent& interactable = registry.get<InteractableComponent>(entity);
+            CoffeeMachineComponent& machine = registry.get<CoffeeMachineComponent>(entity);
+
+            if (!interactable.isEnabled && machine.drink == entt::null)
+                DrawText("!", p.position.x + 40, p.position.y - 40, 30, RED);
+            else
+            {
+                int y_offset = -35;
+                std::string text = "";
+
+                if (!machine.hasCoffeeGrounds)
+                {
+                    text += "No Coffee Bean\n";
+                    y_offset -= 10;
+                }
+
+                if (!machine.hasWater)
+                {
+                    text += "No Water\n";
+                    y_offset -= 10;
+                }
+
+                if (machine.drink == entt::null)
+                {
+                    text += "No Cup\n";
+                    y_offset -= 10;
+                }
+
+                DrawText(text.c_str(), p.position.x + 40, p.position.y + y_offset, 12, BLACK);
+            }
+        }
     }
 
     // interactables
@@ -1149,8 +1186,4 @@ void draw_level()
 
     // score
     DrawText(TextFormat("Score Today: %04i",int(day_score)), 250, 30, 30, BLACK);
-
-    //TEMP
-    DrawText(TextFormat("Customers: %02i", customers.size()), 10, 10, 20, BLACK);
-    DrawText(TextFormat("Queue: %02i", queue.size()), 10, 40, 20, BLACK);
 }
