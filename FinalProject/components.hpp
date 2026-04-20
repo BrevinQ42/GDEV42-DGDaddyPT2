@@ -3,7 +3,7 @@
 const float GRID_SIZE = 48.0f;
 const float radius = 16.0f;
 
-float brew_time = 15.0f;
+float brew_time = 10.0f;
 
 entt::registry registry;
 std::vector<entt::entity> available_tables;

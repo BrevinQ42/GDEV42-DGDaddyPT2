@@ -30,18 +30,21 @@ void Player::Update(float delta_time)
 	}
 }
 
-Player::Player()
+Player::Player(int x, int y)
 {
 	// player
     entity = registry.create();
     registry.emplace<CircleComponent>(entity, radius);
-    registry.emplace<PositionComponent>(entity, Vector2{8.5f * GRID_SIZE, 7.5f * GRID_SIZE});
+    registry.emplace<PositionComponent>(entity, Vector2{(x + 0.5f) * GRID_SIZE, (y + 0.5f) * GRID_SIZE});
     registry.emplace<MoveComponent>(entity, Vector2Zero());
     registry.emplace<AccelerationComponent>(entity, Vector2Zero());
     registry.emplace<PhysicsComponent>(entity, 1.0f, 1 / 1.0f);
     registry.emplace<DirectionComponent>(entity, Vector2{0.0f, 1.0f});
     registry.emplace<InteractorComponent>(entity, entt::null);
     registry.emplace<HolderComponent>(entity, entt::null);
+    registry.emplace<SpriteComponent>(entity, user,
+                    std::vector<Rectangle>{{0, 0, 48, 96}, {48, 0, 48, 96}, {96, 0, 48, 96}, {144, 0, 48, 96}},
+                    4, Vector2{24.0f, 86.0f}); // THINK ABT ROTATING LATER
 
 	idle.player = this;
 	moving.player = this;
@@ -167,7 +170,8 @@ void PlayerHoldingItem::Enter() {}
 
 void PlayerIdle::Update(float delta_time)
 {
-	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_A) || IsKeyDown(KEY_S) || IsKeyDown(KEY_D))
+	if (IsKeyDown(KEY_W) || IsKeyDown(KEY_A) || IsKeyDown(KEY_S) || IsKeyDown(KEY_D) ||
+		IsKeyDown(KEY_UP) || IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_RIGHT))
 		player->SetMovementState(&player->moving);
 }
 
@@ -175,18 +179,18 @@ void PlayerMoving::Update(float delta_time)
 {
 	Vector2 forces = Vector2Zero(); // every frame set the forces to a 0 vector
 
-    // Adds forces with the magnitude of 200 in the direction given by WASD inputs
-    if(IsKeyDown(KEY_W)) {
-        forces = Vector2Add(forces, {0, -200});
+    // Adds forces with the magnitude of 500 in the direction given by WASD inputs
+    if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) {
+        forces = Vector2Add(forces, {0, -500});
     }
-    if(IsKeyDown(KEY_A)) {
-        forces = Vector2Add(forces, {-200, 0});
+    if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+        forces = Vector2Add(forces, {-500, 0});
     }
-    if(IsKeyDown(KEY_S)) {
-        forces = Vector2Add(forces, {0, 200});
+    if(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) {
+        forces = Vector2Add(forces, {0, 500});
     }
-    if(IsKeyDown(KEY_D)) {
-        forces = Vector2Add(forces, {200, 0});
+    if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) {
+        forces = Vector2Add(forces, {500, 0});
     }
 
     AccelerationComponent& a = registry.get<AccelerationComponent>(player->entity);
@@ -222,14 +226,14 @@ void PlayerRoaming::Update(float delta_time)
 		MoneyComponent* payment = registry.try_get<MoneyComponent>(interactor.hot_item);
         if (payment)
         {
-////////////////// OBSERVER PATTERN OPT (also for end day)
-        	////// - remove from read_player_input this part
-            // add payment to score
-            // score += payment->amount;
-            // day_score += payment->amount;
-            // ....
-            
-            return;
+	////////////////// OBSERVER PATTERN OPT (also for end day)
+	        	////// - remove from read_player_input this part
+	            // add payment to score
+	            // score += payment->amount;
+	            // day_score += payment->amount;
+	            // ....
+	            
+	            return;
         }
 
         HolderComponent& holder = registry.get<HolderComponent>(player->entity);

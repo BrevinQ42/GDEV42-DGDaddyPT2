@@ -64,7 +64,7 @@ public:
 	PlayerRoaming roaming; // not holding item
 	PlayerHoldingItem holding_item;
 
-	Player();
+	Player(int x, int y);
 	~Player();
 
 	void Update(float delta_time);

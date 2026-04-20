@@ -176,10 +176,11 @@ public:
         srand(time(0));
 
         SetTargetFPS(FPS);
-
+        
         if (!is_unpaused)
         {
             init_textures();
+            init_tilemap();
             init_entities();
             reserve_memory();
             accumulator = 0;
@@ -190,6 +191,8 @@ public:
             customers_so_far = 0;
         }
         else is_unpaused = false;
+
+        setup_camera();
     }   
 
     void End() override {}
@@ -230,12 +233,26 @@ public:
     }
 
     void Draw() override {
+        BeginMode2D(camera_view);
         draw_level();
+        EndMode2D();
 
         if (button_name != "")
         {
             DrawText("Press 'Enter' to End Day", 300, 550, 18, BLACK);
         }
+
+        // score
+        DrawText(TextFormat("Score Today: %04i",int(day_score)), 250, 30, 30, BLACK);
+
+        // recipes
+        DrawText("Recipes!", 15, 632, 30, BLACK);
+        DrawTexturePro(recipes, {0, 0, 768, 96}, {0, 672, 768, 96}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+
+        // customer arrived (also possible for observer)
+        TimerComponent& timer = registry.get<TimerComponent>(spawn_timer);
+        if (timer.time > head_start_time)
+            DrawText("A Customer Arrived!", 10, 10, 20, BLACK);
 
         // DrawText(TextFormat("Orders: %04i", balls.size()), 20, 20, 20, WHITE);
         // DrawTexturePro(raylib_logo, {0, 0, 256, 256}, {logo_position.x, logo_position.y, 200, 200}, {0, 0}, 0.0f, WHITE);
@@ -339,6 +356,8 @@ public:
                 delete player;
                 player = nullptr;
 
+                customers.clear();
+
                 registry.clear();
 
                 if (GetSceneManager() != nullptr) {
@@ -352,6 +371,8 @@ public:
             {
                 delete player;
                 player = nullptr;
+
+                customers.clear();
 
                 registry.clear();
 
