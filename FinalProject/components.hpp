@@ -23,6 +23,7 @@ struct SpriteComponent
 	Texture sprite_sheet;
 	std::vector<Rectangle> frames;
 	int frame_number;
+	Vector2 origin;
 };
 
 struct MoveComponent
