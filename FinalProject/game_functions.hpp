@@ -365,13 +365,14 @@ void read_player_input()
         forces = Vector2Add(forces, {200, 0});
     }
 
-    if (IsKeyDown(KEY_P))
-    {
-        if (day == total_days)
-            button_name = "End Game";
-        else
-            button_name = "Next Day";
-    }
+    // "CHEAT" control to auto end day (for demo)
+    // if (IsKeyDown(KEY_P))
+    // {
+    //     if (day == total_days)
+    //         button_name = "End Game";
+    //     else
+    //         button_name = "Next Day";
+    // }
 
     AccelerationComponent& a = registry.get<AccelerationComponent>(player);
     PhysicsComponent& p1_phy = registry.get<PhysicsComponent>(player);
