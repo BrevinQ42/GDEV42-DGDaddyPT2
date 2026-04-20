@@ -129,23 +129,23 @@ void init_entities()
     registry.emplace<PositionComponent>(counter5, Vector2{9.5f * GRID_SIZE, 6.5f * GRID_SIZE});
     registry.emplace<PhysicsComponent>(counter5, 1.0f, 0.0f);
     registry.emplace<InteractableComponent>(counter5, true, false);
-    registry.emplace<TableComponent>(counter5, true);
+    registry.emplace<TableComponent>(counter5, false);
     registry.emplace<ColorComponent>(counter5, DARKBROWN);
 
     entt::entity counter6 = registry.create();
     registry.emplace<SquareComponent>(counter6, GRID_SIZE / 2.0f);
     registry.emplace<PositionComponent>(counter6, Vector2{10.5f * GRID_SIZE, 6.5f * GRID_SIZE});
     registry.emplace<PhysicsComponent>(counter6, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter6, false, false);
-    registry.emplace<TableComponent>(counter6, true);
+    registry.emplace<InteractableComponent>(counter6, true, false);
+    registry.emplace<TableComponent>(counter6, false);
     registry.emplace<ColorComponent>(counter6, DARKBROWN);
 
     entt::entity counter7 = registry.create();
     registry.emplace<SquareComponent>(counter7, GRID_SIZE / 2.0f);
     registry.emplace<PositionComponent>(counter7, Vector2{11.5f * GRID_SIZE, 6.5f * GRID_SIZE});
     registry.emplace<PhysicsComponent>(counter7, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter7, false, false);
-    registry.emplace<TableComponent>(counter7, true);
+    registry.emplace<InteractableComponent>(counter7, true, false);
+    registry.emplace<TableComponent>(counter7, false);
     registry.emplace<ColorComponent>(counter7, DARKBROWN);
 
     // customer-side obstacles
@@ -266,22 +266,45 @@ void init_entities()
     registry.emplace<IngredientComponent>(water_pitcher, "water", true);
     registry.emplace<ColorComponent>(water_pitcher, SKYBLUE);
 
-    entt::entity kettle = registry.create();
-    registry.emplace<PositionComponent>(kettle, Vector2{10.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(kettle, true, false);
-    registry.emplace<HoldableComponent>(kettle, false);
-    registry.emplace<PlaceableComponent>(kettle, counter6);
-    registry.emplace<IngredientComponent>(kettle, "hot water", true);
-    registry.emplace<ColorComponent>(kettle, RED);
+    if (drinks_on_menu > 2)
+    {
+        if (drinks[2] == "americano" || drinks_on_menu == 4)
+        {
+            // put kettle
+            entt::entity kettle = registry.create();
+            registry.emplace<PositionComponent>(kettle, Vector2{10.5f * GRID_SIZE, 6.5f * GRID_SIZE});
+            registry.emplace<InteractableComponent>(kettle, true, false);
+            registry.emplace<HoldableComponent>(kettle, false);
+            registry.emplace<PlaceableComponent>(kettle, counter6);
+            registry.emplace<IngredientComponent>(kettle, "hot water", true);
+            registry.emplace<ColorComponent>(kettle, RED);
 
+            // update counter 6
+            TableComponent& table = registry.get<TableComponent>(counter6);
+            table.hasItemOnTop = true;
 
-    entt::entity milk_jug = registry.create();
-    registry.emplace<PositionComponent>(milk_jug, Vector2{11.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(milk_jug, true, false);
-    registry.emplace<HoldableComponent>(milk_jug, false);
-    registry.emplace<PlaceableComponent>(milk_jug, counter7);
-    registry.emplace<IngredientComponent>(milk_jug, "milk", true);
-    registry.emplace<ColorComponent>(milk_jug, WHITE);
+            InteractableComponent& i = registry.get<InteractableComponent>(counter6);
+            i.isEnabled = false;
+        }
+        
+        if (drinks[2] == "cappuccino" || drinks_on_menu == 4)
+        {
+            entt::entity milk_jug = registry.create();
+            registry.emplace<PositionComponent>(milk_jug, Vector2{11.5f * GRID_SIZE, 6.5f * GRID_SIZE});
+            registry.emplace<InteractableComponent>(milk_jug, true, false);
+            registry.emplace<HoldableComponent>(milk_jug, false);
+            registry.emplace<PlaceableComponent>(milk_jug, counter7);
+            registry.emplace<IngredientComponent>(milk_jug, "milk", true);
+            registry.emplace<ColorComponent>(milk_jug, WHITE);
+
+            // update counter 6
+            TableComponent& table = registry.get<TableComponent>(counter7);
+            table.hasItemOnTop = true;
+
+            InteractableComponent& i = registry.get<InteractableComponent>(counter7);
+            i.isEnabled = false;
+        }
+    }
 }
 
 void reserve_memory()
@@ -313,6 +336,14 @@ void read_player_input()
     }
     if(IsKeyDown(KEY_D)) {
         forces = Vector2Add(forces, {200, 0});
+    }
+
+    if (IsKeyDown(KEY_P))
+    {
+        if (day == total_days)
+            button_name = "End Game";
+        else
+            button_name = "Next Day";
     }
 
     AccelerationComponent& a = registry.get<AccelerationComponent>(player);
@@ -1186,4 +1217,8 @@ void draw_level()
 
     // score
     DrawText(TextFormat("Score Today: %04i",int(day_score)), 250, 30, 30, BLACK);
+
+    //TEMP
+    DrawText(TextFormat("Customers: %02i", customers.size()), 10, 10, 20, BLACK);
+    DrawText(TextFormat("Queue: %02i", queue.size()), 10, 40, 20, BLACK);
 }
