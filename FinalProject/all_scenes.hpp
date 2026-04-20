@@ -26,16 +26,31 @@ struct UiLibrary uiLibrary;
 class TitleScene : public Scene {
     Texture bean;
     float counter;
+    float accumulator;
+    Rectangle sourceRec;
 
 public:
     void Begin() override {
         bean = ResourceManager::GetInstance()->GetTexture("bean.png");
         counter = 0.0f;
+        accumulator = 0.0f;
     }
 
     void End() override {}
 
     void Update() override {
+        float delta_time = GetFrameTime();
+
+        accumulator += delta_time;
+        while(accumulator >= 30 * TIMESTEP)
+        {
+            sourceRec = {counter * 16, 0, 16, 16};
+            counter += 1.0f;
+            if (counter >= 8.0f) counter = 0.0f;
+
+            accumulator -= 30 * TIMESTEP;
+        }
+
         if (IsKeyPressed(KEY_ENTER)) {
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(1);
@@ -65,7 +80,7 @@ public:
     }
 
     void Draw() override {
-        DrawTexturePro(bean, {counter * 16, 0, 16, 16}, {250, 250, 300, 300}, {0, 0}, 0.0f, WHITE);
+        DrawTexturePro(bean, sourceRec, {400, 400, 300, 300}, {150.0f, 150.0f}, 45.0f, WHITE);
         DrawText("R@Nd0M\n  cafe!", 290, 350, 60, WHITE);
     }
 };
