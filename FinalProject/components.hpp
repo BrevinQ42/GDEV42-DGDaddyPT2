@@ -1,3 +1,28 @@
+#include "entt.hpp"
+
+const float GRID_SIZE = 48.0f;
+const float radius = 16.0f;
+
+float brew_time = 15.0f;
+
+entt::registry registry;
+std::vector<entt::entity> available_tables;
+
+// TEXTURES
+Texture bean;
+Texture hot_coffee;
+Texture coffee_tools;
+Texture iced_coffee;
+Texture user;
+Texture kitchen;
+Texture water;
+Texture espresso;
+Texture americano;
+Texture cappuccino;
+Texture order;
+Texture recipes;
+
+
 struct CircleComponent
 {
 	float radius;	

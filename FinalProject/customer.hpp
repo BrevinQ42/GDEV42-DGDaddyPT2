@@ -7,20 +7,14 @@
 #ifndef CUSTOMER
 #define CUSTOMER
 
-#include "entt.hpp"
-#include "components.hpp"
+#include "entity.hpp"
 
 class Customer;
 
-class CustomerState
+class CustomerState : public EntityState
 {
 public:
 	Customer* customer;
-
-	virtual ~CustomerState() {};
-    virtual void Enter() = 0;
-    virtual void Update(float delta_time) = 0;
-    virtual void Exit() = 0;
 };
 
 class CustomerQueuing : public CustomerState

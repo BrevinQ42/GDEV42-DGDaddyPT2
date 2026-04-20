@@ -200,12 +200,11 @@ public:
         accumulator += delta_time;
         while(accumulator >= TIMESTEP)
         {
-            read_player_input();
+            update_player();
             update_customers();
             affect_velocities();
             move_entities();
             handle_collisions();
-            get_hot_items();
             update_timers();
 
             accumulator -= TIMESTEP;
@@ -337,6 +336,9 @@ public:
                         std::cout << "No more drinks to be unlocked\n";
                 }
                 
+                delete player;
+                player = nullptr;
+
                 registry.clear();
 
                 if (GetSceneManager() != nullptr) {
@@ -348,6 +350,9 @@ public:
         {
             if (uiLibrary.Button(0, button_name, 250.0f))
             {
+                delete player;
+                player = nullptr;
+
                 registry.clear();
 
                 if (GetSceneManager() != nullptr) {

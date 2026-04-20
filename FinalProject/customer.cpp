@@ -7,11 +7,7 @@
 #include <string>
 #include "customer.hpp"
 
-const float radius = 16.0f;
 
-entt::registry registry;
-
-std::vector<entt::entity> available_tables;
 std::vector<Customer*> queue;
 
 float consume_time = 15.0f;
