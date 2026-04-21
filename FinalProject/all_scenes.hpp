@@ -211,16 +211,10 @@ public:
             accumulator -= TIMESTEP;
         }
 
+        
         if (uiLibrary.ButtonIcon(0, {740, 40}, pause))
         {
             entt::basic_snapshot snapshot(registry);
-            /* snapshot.entities(archive).component<CircleComponent, SquareComponent,
-            PositionComponent, ColorComponent, SpriteComponent, MoveComponent, 
-            AccelerationComponent, PhysicsComponent, DirectionComponent, InteractableComponent,
-            InteractorComponent, ChairComponent, TableComponent, DiningTableComponent,
-            PlaceableComponent, HoldableComponent, HolderComponent, DrinkComponent,
-            IngredientComponent, StackComponent, CoffeeMachineComponent, TimerComponent,
-            CustomerComponent, MoneyComponent>(archive); */
             snapshot.entities(archive).component<CircleComponent, SquareComponent, 
             PositionComponent, ColorComponent, SpriteComponent, MoveComponent,
             AccelerationComponent, PhysicsComponent, DirectionComponent,
@@ -233,6 +227,8 @@ public:
 
             std::string json_output = archive.AsString();
             printf("json:%s\n", json_output.c_str());
+
+            //archive.Save("save.json");
 
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(4);
@@ -264,8 +260,11 @@ public:
         DrawText(TextFormat("Score Today: %04i",int(day_score)), 250, 30, 30, BLACK);
 
         // recipes
+        DrawText("X to interact!\nWASD to move.", 600, 627, 20, BLACK);
         DrawText("Recipes!", 15, 632, 30, BLACK);
-        DrawTexturePro(recipes, {0, 0, 768, 96}, {0, 672, 768, 96}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+        DrawTexturePro(textures[11], {0, 0, 768, 96}, {0, 672, 768, 96}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+
+        DrawTexturePro(textures[12], {0, 0, 50, 50}, {710, 20, 50, 50}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 
         // customer arrived
         DrawText(customer_notif.c_str(), 10, 10, 20, LIME);

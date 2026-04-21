@@ -25,10 +25,11 @@ Texture americano;
 Texture cappuccino;
 Texture order;
 Texture recipes;
+Texture pause;
 
-Texture textures[12] = {
+Texture textures[13] = {
     bean, hot_coffee, coffee_tools, iced_coffee, user, kitchen,
-    water, espresso, americano, cappuccino, order, recipes
+    water, espresso, americano, cappuccino, order, recipes, pause
 };
 
 struct CircleComponent
@@ -78,7 +79,6 @@ inline void from_json(const nlohmann::json& j, ColorComponent& c) {
     j.at("b").get_to(c.color.b);
     j.at("a").get_to(c.color.a);
 }
-
 
 struct SpriteComponent
 {
@@ -245,7 +245,7 @@ struct CustomerComponent
 	entt::entity table;
 	entt::entity drink;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CustomerComponent, patience, state, order, table, drink)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CustomerComponent, patience, order, table, drink)
 };
 
 struct MoneyComponent

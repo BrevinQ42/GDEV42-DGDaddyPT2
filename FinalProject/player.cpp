@@ -72,7 +72,7 @@ Player::Player(int x, int y)
     registry.emplace<DirectionComponent>(entity, Vector2{0.0f, 1.0f});
     registry.emplace<InteractorComponent>(entity, entt::null);
     registry.emplace<HolderComponent>(entity, entt::null);
-    registry.emplace<SpriteComponent>(entity, user,
+    registry.emplace<SpriteComponent>(entity, 4,
                     std::vector<Rectangle>{{0, 0, 48, 96}, {48, 0, 48, 96}, {96, 0, 48, 96}, {144, 0, 48, 96}},
                     4, Vector2{24.0f, 86.0f}); // THINK ABT ROTATING LATER
 
@@ -350,7 +350,7 @@ void PlayerRoaming::Update(float delta_time)
             {
                 registry.emplace<DrinkComponent>(new_entity, "empty");
 
-                registry.emplace<SpriteComponent>(new_entity, kitchen, 
+                registry.emplace<SpriteComponent>(new_entity, 5, 
                     std::vector<Rectangle>{{48, 960, 48, 48}}, 0, Vector2{24.0f, 48.0f});
                 
 
@@ -361,7 +361,7 @@ void PlayerRoaming::Update(float delta_time)
                 IngredientComponent& ingredient = registry.get<IngredientComponent>(interactor.hot_item);
                 registry.emplace<IngredientComponent>(new_entity, ingredient.name);
 
-                registry.emplace<SpriteComponent>(new_entity, bean,
+                registry.emplace<SpriteComponent>(new_entity, 0,
                     std::vector<Rectangle>{{0, 0, 16, 16}, {16, 0, 16, 16}, {32, 0, 16, 16},
                     {48, 0, 16, 16}, {64, 0, 16, 16}, {80, 0, 16, 16}, {96, 0, 16, 16}, 
                     {112, 0, 16, 16}}, 0, Vector2{24.0f, 32.0f});
@@ -581,15 +581,15 @@ void PlayerHoldingItem::Update(float delta_time)
 		        {
 		            if (drink->name == "water")
 		            {
-		                drink_sprite->sprite_sheet = water;
+		                drink_sprite->sprite_id = 6;
 		            }
 		            else if (drink->name == "americano")
 		            {
-		                drink_sprite->sprite_sheet = americano;
+		                drink_sprite->sprite_id = 8;
 		            }
 		            else if (drink->name == "cappuccino")
 		            {
-		                drink_sprite->sprite_sheet = cappuccino;
+		                drink_sprite->sprite_id = 9;
 		            }
 
 		            drink_sprite->frames = std::vector<Rectangle>{{0, 0, 48, 48}};
