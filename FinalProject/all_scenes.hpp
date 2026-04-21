@@ -174,15 +174,23 @@ public:
         srand(time(0));
 
         SetTargetFPS(FPS);
-        init_textures();
-        init_entities(registry, player, spawn_timer);
-        reserve_memory();
-        accumulator = 0;
-        day_score = 0;
-        button_name = "";
+        
+        if (!is_unpaused)
+        {
+            init_textures();
+            init_tilemap();
+            init_entities();
+            reserve_memory();
+            accumulator = 0;
+            day_score = 0;
+            button_name = "";
 
-        customers_not_served = 0;
-        customers_so_far = 0;
+            customers_not_served = 0;
+            customers_so_far = 0;
+        }
+        else is_unpaused = false;
+
+        setup_camera();
     }   
 
     void End() override {}
@@ -190,18 +198,15 @@ public:
     void Update() override {
         float delta_time = GetFrameTime();
 
-        read_player_input(registry, player);
-
-        // Physics Step
         accumulator += delta_time;
         while(accumulator >= TIMESTEP)
         {
-            update_customers(registry);
-            affect_velocities(registry);
-            move_entities(registry);
-            handle_collisions(registry);
-            get_hot_items(registry);
-            update_timers(registry, spawn_timer);
+            update_player();
+            update_customers();
+            affect_velocities();
+            move_entities();
+            handle_collisions();
+            update_timers();
 
             accumulator -= TIMESTEP;
         }
@@ -246,12 +251,24 @@ public:
     }
 
     void Draw() override {
-        draw_level(registry, player);
+        BeginMode2D(camera_view);
+        draw_level();
+        EndMode2D();
 
         if (button_name != "")
         {
             DrawText("Press 'Enter' to End Day", 300, 550, 18, BLACK);
         }
+
+        // score
+        DrawText(TextFormat("Score Today: %04i",int(day_score)), 250, 30, 30, BLACK);
+
+        // recipes
+        DrawText("Recipes!", 15, 632, 30, BLACK);
+        DrawTexturePro(recipes, {0, 0, 768, 96}, {0, 672, 768, 96}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+
+        // customer arrived
+        DrawText(customer_notif.c_str(), 10, 10, 20, LIME);
 
         // DrawText(TextFormat("Orders: %04i", balls.size()), 20, 20, 20, WHITE);
         // DrawTexturePro(raylib_logo, {0, 0, 256, 256}, {logo_position.x, logo_position.y, 200, 200}, {0, 0}, 0.0f, WHITE);
@@ -274,7 +291,8 @@ public:
         {
             std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
-                GetSceneManager()->SwitchScene(5);
+                is_unpaused = true;
+                GetSceneManager()->SwitchScene(1);
             }
         }
         if (uiLibrary.Button(1, "Main Menu"))
@@ -287,7 +305,7 @@ public:
     }
 
     void Draw() override {
-        DrawText("Game Paused", 300, 300, 30, BLACK);
+        DrawText("GAME PAUSED", 280, 300, 30, BLACK);
     }
 };
 
@@ -321,8 +339,41 @@ public:
             if (uiLibrary.Button(0, button_name, 250.0f))
             {
                 if (button_name == "Next Day")
+                {
                     day++;
+
+                    // if there are still drinks to be unlocked,
+                    if (drinks_on_menu < 4)
+                    {
+                        // 50% chance at unlocking a new drink
+                        if (GetRandomValue(0,1))
+                        {
+                            // choose a drink to be unlocked
+                            int index = GetRandomValue(drinks_on_menu, 3);
+
+                            if (drinks_on_menu != index)
+                            {
+                                // swap order to make new drink unlocked
+                                std::string temp = drinks[drinks_on_menu];
+                                drinks[drinks_on_menu] = drinks[index];
+                                drinks[index] = temp;
+                            }
+
+                            std::cout << "Unlocked new drink: " << drinks[drinks_on_menu] << "\n";
+                            drinks_on_menu++;
+                        }
+                        else
+                            std::cout << "No drink unlocked\n";
+                    }
+                    else
+                        std::cout << "No more drinks to be unlocked\n";
+                }
                 
+                delete player;
+                player = nullptr;
+
+                customers.clear();
+
                 registry.clear();
 
                 if (GetSceneManager() != nullptr) {
@@ -334,6 +385,13 @@ public:
         {
             if (uiLibrary.Button(0, button_name, 250.0f))
             {
+                delete player;
+                player = nullptr;
+
+                customers.clear();
+
+                registry.clear();
+
                 if (GetSceneManager() != nullptr) {
                     GetSceneManager()->SwitchScene(6);
                 }
@@ -520,6 +578,10 @@ public:
             std::ofstream file("leaderboard.txt");
             file << new_leaderboard;
             file.close();
+
+            // reset values
+            score = 0;
+            day = 1;
 
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(3);

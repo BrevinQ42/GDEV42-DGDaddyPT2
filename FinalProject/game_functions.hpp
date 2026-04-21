@@ -4,70 +4,44 @@
 #include <map>
 #include <vector>
 
-#include "entt.hpp"
-#include "components.hpp"
+#include "player.cpp"
+#include "customer.cpp"
 
 const float FPS = 60;
 const float TIMESTEP = 1/FPS;
+
 const float FRICTION = 1.5f;
 const float e = 0.25f;
 
-const float GRID_SIZE = 48.0f;
-const float radius = 16.0f;
 const float item_radius = 12.0f;
-const float interact_range = GRID_SIZE * 1.5f;
 const int fail_threshold = 3;
-const float time_per_day = 180.0f;
-const float head_start_time = 15.0f;
+const float head_start_time = 25.0f;
+const float customer_spawn_time = 30.0f;
 
-float brew_time = 15.0f;
-float consume_time = 15.0f;
+Camera2D camera_view;
+Vector2 max = {24 * GRID_SIZE, 24 * GRID_SIZE};
+Vector2 min = Vector2Zero();
+
+std::vector<Rectangle> tiles;
+int grid[24][24];
+
+bool is_unpaused = false;
 
 int day = 1;
 int total_days = 5;
+bool is_first_run = true;
 
 int customers_not_served = 0;
-float total_customers_today[6] = {0, 8, 10, 12, 15, 18};
+float total_customers_today[6] = {0, 4, 6, 8, 10, 12};
 float customers_so_far = 0;
-
-float score = 0;
-float day_score = 0;
 
 std::string button_name = "";
 
-// TEXTURES
-Texture bean;
-Texture hot_coffee;
-Texture coffee_tools;
-Texture iced_coffee;
-Texture user;
-Texture kitchen;
-Texture water;
-Texture espresso;
-Texture americano;
-Texture cappuccino;
-Texture order;
-Texture recipes;
-
-Texture textures[12] = {
-    bean, hot_coffee, coffee_tools, iced_coffee, user, kitchen,
-    water, espresso, americano, cappuccino, order, recipes
-};
-
-
-entt::registry registry;
-entt::entity player;
+Player* player = nullptr;
 entt::entity spawn_timer;
 
 std::string drinks[4] = {"water", "espresso", "americano", "cappuccino"};
 int drinks_on_menu = 2;
-
-std::map< std::pair<std::string, std::string>, std::string > combine =
-{
-    {std::make_pair("empty", "water"),         "water"},
-    {std::make_pair("espresso", "hot water"),  "americano"},
-    {std::make_pair("espresso", "milk"),       "cappuccino"}
-};
 
 std::map<std::string, int> price =
 {
@@ -77,8 +51,7 @@ std::map<std::string, int> price =
     {"cappucino", 12},
 };
 
-std::vector<entt::entity> queue;
-std::vector<entt::entity> available_tables;
+std::vector<Customer*> customers;
 
 void init_textures()
 {
@@ -96,689 +69,449 @@ void init_textures()
     textures[11] = ResourceManager::GetInstance()->GetTexture("recipes.png");
 }
 
-void init_entities(entt::registry& registry, entt::entity& player, entt::entity& spawn_timer)
+void init_tilemap()
 {
-    // player
-    player = registry.create();
-    registry.emplace<CircleComponent>(player, radius);
-    registry.emplace<PositionComponent>(player, Vector2{8.5f * GRID_SIZE, 7.5f * GRID_SIZE});
-    registry.emplace<MoveComponent>(player, Vector2Zero());
-    registry.emplace<AccelerationComponent>(player, Vector2Zero());
-    registry.emplace<PhysicsComponent>(player, 1.0f, 1 / 1.0f);
-    registry.emplace<DirectionComponent>(player, Vector2{0.0f, 1.0f});
-    registry.emplace<InteractorComponent>(player, entt::null);
-    registry.emplace<HolderComponent>(player, entt::null);
-    registry.emplace<SpriteComponent>(player, 4,
-        std::vector<Rectangle>{{0, 0, 48, 96}, {48, 0, 48, 96}, {96, 0, 48, 96}, {144, 0, 48, 96}},
-        4, Vector2{24.0f, 86.0f}); 
+    tiles.reserve(10);
+
+    std::ifstream settings("settings.ini");
+    std::string line;
+
+    while (std::getline(settings,line))
+    {
+        if (line[0] == '/') continue;
+
+        tiles.emplace_back();
+
+        // x
+        int index0 = line.find(' ');
+        tiles.back().x = std::stoi(line.substr(0, index0));
+
+        // y
+        std::string sub = line.substr(index0 + 1);
+        int index1 = sub.find(' ');
+        tiles.back().y = std::stoi(sub.substr(0, index1));
+
+        // width
+        std::string sub2 = sub.substr(index1 + 1);
+        int index2 = sub2.find(' ');
+        tiles.back().width = std::stoi(sub2.substr(0, index2));
+        
+        // height
+        std::string sub3 = sub2.substr(index2 + 1);
+        int index3 = sub3.find(' ');
+        tiles.back().height = std::stoi(sub3.substr(0, index3));
+    }
+
+    // get random layout
+    int layout_num = GetRandomValue(1, 3);
+
+    std::cout << "== LAYOUT " << layout_num << " ==\n";
+
+    int counter = 0; // counter to skip grid or count row number for chosen grid
+
+    std::ifstream layouts("layout.ini");
+
+    std::cout << "Opened file\n";
+
+    while(std::getline(layouts,line))
+    {
+        if (line[0] == '/') continue;
+
+        if (counter == 0)
+        {
+            // if found chosen layout, start tracking row number
+            // else, start counting rows to be skipped
+
+            if (std::stoi(line.substr(0)) == layout_num)
+            {
+                std::cout << "Found grid\n";
+                counter = 1;
+            }
+            else
+            {
+                std::cout << "Found " << line.substr(0) << "\n";
+                counter = -1;
+            }
+        }
+        else if (counter > 0) // if has started tracking row number, fill in grid
+        {
+            int index = -1;
+            std::string sub = line;
+
+            for (int i = 0; i < 24; i++)
+            {
+                std::string sub_i = sub.substr(index + 1);
+                index = sub_i.find(' ');
+                grid[i][counter-1] = std::stoi(sub_i.substr(0, index));
+                sub = sub_i;
+            }
+
+            counter++;
+            if (counter == 25) break;
+        }
+        else // else if has started counting rows to be skipped, skip rows
+        {
+            counter--;
+            if (counter == -25) counter = 0;   
+        }
+    }
+    
+    std::cout << "Configured layout\n";
+}
+
+void init_entities()
+{
+    for (int i = 0; i < 24; i++)
+    {
+        for (int j = 0; j < 24; j++)
+        {
+            // skip:
+            // - floor
+            // - table (taken care of when creating chair)
+            if (grid[i][j] == 9 || grid[i][j] == 12) continue;
+
+            Vector2 position = {(i + 0.5f) * GRID_SIZE, (j + 0.5f) * GRID_SIZE};
+
+            // walls
+            if (grid[i][j] < 9)
+            {
+                Rectangle tile = tiles[ grid[i][j] ];
+
+                if (grid[i][j] == 8)
+                    tile = tiles[1];
+
+                entt::entity wall = registry.create();
+                registry.emplace<SquareComponent>(wall, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(wall, position);
+                registry.emplace<PhysicsComponent>(wall, 1.0f, 0.0f);
+                registry.emplace<SpriteComponent>(wall, kitchen, std::vector<Rectangle>{tile}, 0, Vector2{tile.width / 2, tile.height / 2});
+            }
+
+            // chair
+            else if (grid[i][j] == 10)
+            {
+                entt::entity chair = registry.create();
+                registry.emplace<SquareComponent>(chair, GRID_SIZE / 4.0f);
+                registry.emplace<PositionComponent>(chair, position);
+                registry.emplace<PhysicsComponent>(chair, 1.0f, 0.0f);
+                registry.emplace<ChairComponent>(chair, entt::null);
+                registry.emplace<SpriteComponent>(chair, kitchen, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
+
+                // make its corresponding table (in the cell below it)
+                entt::entity dining_table = registry.create();
+                registry.emplace<SquareComponent>(dining_table, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(dining_table, Vector2Add(position, {0, GRID_SIZE}));
+                registry.emplace<PhysicsComponent>(dining_table, 1.0f, 0.0f);
+                registry.emplace<InteractableComponent>(dining_table, true, false);
+                registry.emplace<TableComponent>(dining_table, false);
+                registry.emplace<DiningTableComponent>(dining_table, chair);
+                registry.emplace<SpriteComponent>(dining_table, kitchen, std::vector<Rectangle>{{288, 2112, 48, 96}}, 0, Vector2{24.0f, 24.0f});
+
+                // make dining table available
+                available_tables.push_back(dining_table);
+            }
+            
+            // counter
+            else if (grid[i][j] == 11)
+            {
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<InteractableComponent>(counter, true, false);
+                registry.emplace<TableComponent>(counter, false);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+            }
+
+            // cosmetic chair
+            else if (grid[i][j] == 13)
+            {
+                entt::entity chair = registry.create();
+                registry.emplace<SquareComponent>(chair, GRID_SIZE / 4.0f);
+                registry.emplace<PositionComponent>(chair, Vector2Add(position, {0, GRID_SIZE / 4.0f}));
+                registry.emplace<PhysicsComponent>(chair, 1.0f, 0.0f);
+                registry.emplace<SpriteComponent>(chair, kitchen, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
+            }
+
+            // player
+            else if (grid[i][j] == 14)
+            {
+                player = new Player(i, j);
+            }
+
+            // coffee bean stack
+            else if (grid[i][j] == 15)
+            {
+                // make counter first
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+
+                entt::entity bean_stack = registry.create();
+                registry.emplace<PositionComponent>(bean_stack, position);
+                registry.emplace<InteractableComponent>(bean_stack, true, false);
+                registry.emplace<StackComponent>(bean_stack, "ingredient");
+                registry.emplace<IngredientComponent>(bean_stack, "coffee bean", false);
+                registry.emplace<SpriteComponent>(bean_stack, bean,
+                    std::vector<Rectangle>{{0, 0, 16, 16}, {16, 0, 16, 16}, {32, 0, 16, 16},
+                    {48, 0, 16, 16}, {64, 0, 16, 16}, {80, 0, 16, 16}, {96, 0, 16, 16}, 
+                    {112, 0, 16, 16}}, 0, Vector2{24.0f, 32.0f});
+            }
+
+            // coffee machine
+            else if (grid[i][j] == 16)
+            {
+                // make counter first
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+
+                entt::entity coffee_machine = registry.create();
+                registry.emplace<PositionComponent>(coffee_machine, position);
+                registry.emplace<InteractableComponent>(coffee_machine, true, false);
+                registry.emplace<TableComponent>(coffee_machine, false);
+                registry.emplace<CoffeeMachineComponent>(coffee_machine, false, false, entt::null);
+                registry.emplace<TimerComponent>(coffee_machine, 0.0f);
+                registry.emplace<SpriteComponent>(coffee_machine, kitchen, 
+                    std::vector<Rectangle>{{720, 1392, 48, 96}}, 0, Vector2{24.0f, 96.0f});
+            }
+
+            // stack of cups
+            else if (grid[i][j] == 17)
+            {
+                // make counter first
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+
+                entt::entity stack_of_cups = registry.create();
+                registry.emplace<PositionComponent>(stack_of_cups, position);
+                registry.emplace<InteractableComponent>(stack_of_cups, true, false);
+                registry.emplace<StackComponent>(stack_of_cups, "cup");
+                registry.emplace<SpriteComponent>(stack_of_cups, kitchen, 
+                    std::vector<Rectangle>{{48, 960, 48, 48}}, 0, Vector2{24.0f, 48.0f});
+            }
+
+            // water pitcher
+            else if (grid[i][j] == 18)
+            {
+                // make counter first
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<InteractableComponent>(counter, false, false);
+                registry.emplace<TableComponent>(counter, true);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+
+                entt::entity water_pitcher = registry.create();
+                registry.emplace<PositionComponent>(water_pitcher, position);
+                registry.emplace<InteractableComponent>(water_pitcher, true, false);
+                registry.emplace<HoldableComponent>(water_pitcher, false);
+                registry.emplace<PlaceableComponent>(water_pitcher, counter);
+                registry.emplace<IngredientComponent>(water_pitcher, "water", true);
+                registry.emplace<SpriteComponent>(water_pitcher, kitchen, 
+                    std::vector<Rectangle>{{672, 624, 48, 96}}, 0, Vector2{24.0f, 72.0f});
+            }
+
+            // hot water pitcher
+            else if (grid[i][j] == 19)
+            {
+                // make counter first
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<InteractableComponent>(counter, true, false);
+                registry.emplace<TableComponent>(counter, false);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+
+                if (drinks_on_menu > 2)
+                {
+                    if (drinks[2] == "americano" || drinks_on_menu == 4)
+                    {
+                        // put kettle
+                        entt::entity kettle = registry.create();
+                        registry.emplace<PositionComponent>(kettle, position);
+                        registry.emplace<InteractableComponent>(kettle, true, false);
+                        registry.emplace<HoldableComponent>(kettle, false);
+                        registry.emplace<PlaceableComponent>(kettle, counter);
+                        registry.emplace<IngredientComponent>(kettle, "hot water", true);
+                        registry.emplace<SpriteComponent>(kettle, kitchen, 
+                            std::vector<Rectangle>{{672, 1104, 48, 96}}, 0, Vector2{24.0f, 96.0f});
+
+                        // update counter
+                        InteractableComponent& interactable = registry.get<InteractableComponent>(counter);
+                        interactable.isEnabled = false;
+
+                        TableComponent& table = registry.get<TableComponent>(counter);
+                        table.hasItemOnTop = true;
+                    }
+                }
+            }
+
+            // milk pitcher
+            else if (grid[i][j] == 20)
+            {
+                // make counter first
+                entt::entity counter = registry.create();
+                registry.emplace<SquareComponent>(counter, GRID_SIZE / 2.0f);
+                registry.emplace<PositionComponent>(counter, position);
+                registry.emplace<PhysicsComponent>(counter, 1.0f, 0.0f);
+                registry.emplace<InteractableComponent>(counter, true, false);
+                registry.emplace<TableComponent>(counter, false);
+                registry.emplace<SpriteComponent>(counter, kitchen, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
+
+                if (drinks_on_menu > 2)
+                {
+                    if (drinks[2] == "cappuccino" || drinks_on_menu == 4)
+                    {
+                        // put milk jug
+                        entt::entity milk_jug = registry.create();
+                        registry.emplace<PositionComponent>(milk_jug, position);
+                        registry.emplace<InteractableComponent>(milk_jug, true, false);
+                        registry.emplace<HoldableComponent>(milk_jug, false);
+                        registry.emplace<PlaceableComponent>(milk_jug, counter);
+                        registry.emplace<IngredientComponent>(milk_jug, "milk", true);
+                        registry.emplace<SpriteComponent>(milk_jug, kitchen, 
+                            std::vector<Rectangle>{{720, 336, 48, 48}}, 0, Vector2{16.0f, 56.0f});
+
+                        // update counter
+                        InteractableComponent& interactable = registry.get<InteractableComponent>(counter);
+                        interactable.isEnabled = false;
+
+                        TableComponent& table = registry.get<TableComponent>(counter);
+                        table.hasItemOnTop = true;
+                    }
+                }
+            }
+        }
+    }
 
     // spawn timer for customers
     spawn_timer = registry.create();
     registry.emplace<TimerComponent>(spawn_timer, head_start_time); // time before first customer
-
-//FOR TESTING
-    // counters
-    entt::entity counter1 = registry.create();
-    registry.emplace<SquareComponent>(counter1, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter1, Vector2{4.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter1, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter1, false, false);
-    registry.emplace<TableComponent>(counter1, true);
-    registry.emplace<SpriteComponent>(counter1, 5, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
-
-    entt::entity counter2 = registry.create();
-    registry.emplace<SquareComponent>(counter2, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter2, Vector2{5.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter2, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter2, false, false);
-    registry.emplace<TableComponent>(counter2, true);
-    registry.emplace<SpriteComponent>(counter2, 5, std::vector<Rectangle>{{240, 288, 48, 96}}, 0,Vector2{24.0f, 48.0f});
-
-    entt::entity counter3 = registry.create();
-    registry.emplace<SquareComponent>(counter3, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter3, Vector2{6.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter3, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter3, false, false);
-    registry.emplace<TableComponent>(counter3, true);
-    registry.emplace<SpriteComponent>(counter3, 5, std::vector<Rectangle>{{240, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
-
-    entt::entity counter4 = registry.create();
-    registry.emplace<SquareComponent>(counter4, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter4, Vector2{7.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter4, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter4, false, false);
-    registry.emplace<TableComponent>(counter4, true);
-    registry.emplace<SpriteComponent>(counter4, 5, std::vector<Rectangle>{{288, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
-
-    entt::entity counter5 = registry.create();
-    registry.emplace<SquareComponent>(counter5, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter5, Vector2{9.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter5, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter5, true, false);
-    registry.emplace<TableComponent>(counter5, true);
-    registry.emplace<SpriteComponent>(counter5, 5, std::vector<Rectangle>{{192, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
-
-    entt::entity counter6 = registry.create();
-    registry.emplace<SquareComponent>(counter6, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter6, Vector2{10.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter6, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter6, false, false);
-    registry.emplace<TableComponent>(counter6, true);
-    registry.emplace<SpriteComponent>(counter6, 5, std::vector<Rectangle>{{240, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
-
-    entt::entity counter7 = registry.create();
-    registry.emplace<SquareComponent>(counter7, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(counter7, Vector2{11.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(counter7, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(counter7, false, false);
-    registry.emplace<TableComponent>(counter7, true);
-    registry.emplace<SpriteComponent>(counter7, 5, std::vector<Rectangle>{{288, 288, 48, 96}}, 0, Vector2{24.0f, 48.0f});
-
-    // customer-side obstacles
-    entt::entity chair1 = registry.create();
-    registry.emplace<SquareComponent>(chair1, GRID_SIZE / 4.0f);
-    registry.emplace<PositionComponent>(chair1, Vector2{7.5f * GRID_SIZE, 2.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(chair1, 1.0f, 0.0f);
-    registry.emplace<ChairComponent>(chair1, entt::null);
-    registry.emplace<SpriteComponent>(chair1, 5, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
-
-    entt::entity dining_table = registry.create();
-    registry.emplace<SquareComponent>(dining_table, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(dining_table, Vector2{7.5f * GRID_SIZE, 3.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(dining_table, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(dining_table, true, false);
-    registry.emplace<TableComponent>(dining_table, false);
-    registry.emplace<DiningTableComponent>(dining_table, chair1);
-    registry.emplace<SpriteComponent>(dining_table, 5, std::vector<Rectangle>{{288, 2112, 48, 96}}, 0, Vector2{24.0f, 24.0f});
-
-    entt::entity chair2 = registry.create();
-    registry.emplace<SquareComponent>(chair2, GRID_SIZE / 4.0f);
-    registry.emplace<PositionComponent>(chair2, Vector2{5.5f * GRID_SIZE, 2.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(chair2, 1.0f, 0.0f);
-    registry.emplace<ChairComponent>(chair2, entt::null);
-    registry.emplace<SpriteComponent>(chair2, 5, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
-
-    entt::entity dining_table2 = registry.create();
-    registry.emplace<SquareComponent>(dining_table2, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(dining_table2, Vector2{5.5f * GRID_SIZE, 3.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(dining_table2, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(dining_table2, true, false);
-    registry.emplace<TableComponent>(dining_table2, false);
-    registry.emplace<DiningTableComponent>(dining_table2, chair2);
-    registry.emplace<SpriteComponent>(dining_table2, 5, std::vector<Rectangle>{{288, 2112, 48, 96}}, 0, Vector2{24.0f, 24.0f});
-
-    entt::entity chair3 = registry.create();
-    registry.emplace<SquareComponent>(chair3, GRID_SIZE / 4.0f);
-    registry.emplace<PositionComponent>(chair3, Vector2{3.5f * GRID_SIZE, 2.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(chair3, 1.0f, 0.0f);
-    registry.emplace<ChairComponent>(chair3, entt::null);
-    registry.emplace<SpriteComponent>(chair3, 5, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
-
-    entt::entity dining_table3 = registry.create();
-    registry.emplace<SquareComponent>(dining_table3, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(dining_table3, Vector2{3.5f * GRID_SIZE, 3.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(dining_table3, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(dining_table3, true, false);
-    registry.emplace<TableComponent>(dining_table3, false);
-    registry.emplace<DiningTableComponent>(dining_table3, chair3);
-    registry.emplace<SpriteComponent>(dining_table3, 5, std::vector<Rectangle>{{288, 2112, 48, 96}}, 0, Vector2{24.0f, 24.0f});
-
-    entt::entity chair4 = registry.create();
-    registry.emplace<SquareComponent>(chair4, GRID_SIZE / 4.0f);
-    registry.emplace<PositionComponent>(chair4, Vector2{9.5f * GRID_SIZE, 2.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(chair4, 1.0f, 0.0f);
-    registry.emplace<ChairComponent>(chair4, entt::null);
-    registry.emplace<SpriteComponent>(chair4, 5, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
-
-    entt::entity dining_table4 = registry.create();
-    registry.emplace<SquareComponent>(dining_table4, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(dining_table4, Vector2{9.5f * GRID_SIZE, 3.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(dining_table4, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(dining_table4, true, false);
-    registry.emplace<TableComponent>(dining_table4, false);
-    registry.emplace<DiningTableComponent>(dining_table4, chair4);
-    registry.emplace<SpriteComponent>(dining_table4, 5, std::vector<Rectangle>{{288, 2112, 48, 96}}, 0, Vector2{24.0f, 24.0f});
-
-    entt::entity chair5 = registry.create();
-    registry.emplace<SquareComponent>(chair5, GRID_SIZE / 4.0f);
-    registry.emplace<PositionComponent>(chair5, Vector2{11.5f * GRID_SIZE, 2.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(chair5, 1.0f, 0.0f);
-    registry.emplace<ChairComponent>(chair5, entt::null);
-    registry.emplace<SpriteComponent>(chair5, 5, std::vector<Rectangle>{{432, 720, 96, 48}}, 0, Vector2{48.0f, 24.0f});
-
-    entt::entity dining_table5 = registry.create();
-    registry.emplace<SquareComponent>(dining_table5, GRID_SIZE / 2.0f);
-    registry.emplace<PositionComponent>(dining_table5, Vector2{11.5f * GRID_SIZE, 3.5f * GRID_SIZE});
-    registry.emplace<PhysicsComponent>(dining_table5, 1.0f, 0.0f);
-    registry.emplace<InteractableComponent>(dining_table5, true, false);
-    registry.emplace<TableComponent>(dining_table5, false);
-    registry.emplace<DiningTableComponent>(dining_table5, chair5);
-    registry.emplace<SpriteComponent>(dining_table5, 5, std::vector<Rectangle>{{288, 2112, 48, 96}}, 0, Vector2{24.0f, 24.0f});
-
-    // item
-    entt::entity stack_of_cups = registry.create();
-    registry.emplace<PositionComponent>(stack_of_cups, Vector2{4.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(stack_of_cups, true, false);
-    registry.emplace<StackComponent>(stack_of_cups, "cup");
-    registry.emplace<SpriteComponent>(stack_of_cups, 5, 
-        std::vector<Rectangle>{{48, 960, 48, 48}}, 0, Vector2{24.0f, 48.0f});
-
-    entt::entity coffee_machine = registry.create();
-    registry.emplace<PositionComponent>(coffee_machine, Vector2{5.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(coffee_machine, true, false);
-    registry.emplace<TableComponent>(coffee_machine, false);
-    registry.emplace<CoffeeMachineComponent>(coffee_machine, false, false, entt::null);
-    registry.emplace<TimerComponent>(coffee_machine, 0.0f);
-    registry.emplace<SpriteComponent>(coffee_machine, 5, 
-        std::vector<Rectangle>{{720, 1392, 48, 96}}, 0, Vector2{24.0f, 96.0f});
-    //registry.emplace<ColorComponent>(coffee_machine, BLACK);
-
-    entt::entity coffee_bean_container = registry.create();
-    registry.emplace<PositionComponent>(coffee_bean_container, Vector2{6.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(coffee_bean_container, true, false);
-    registry.emplace<StackComponent>(coffee_bean_container, "ingredient");
-    registry.emplace<IngredientComponent>(coffee_bean_container, "coffee bean", false);
-    registry.emplace<SpriteComponent>(coffee_bean_container, 0,
-        std::vector<Rectangle>{{0, 0, 16, 16}, {16, 0, 16, 16}, {32, 0, 16, 16},
-        {48, 0, 16, 16}, {64, 0, 16, 16}, {80, 0, 16, 16}, {96, 0, 16, 16}, 
-        {112, 0, 16, 16}}, 0, Vector2{24.0f, 32.0f});
-
-    entt::entity water_pitcher = registry.create();
-    registry.emplace<PositionComponent>(water_pitcher, Vector2{7.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(water_pitcher, true, false);
-    registry.emplace<HoldableComponent>(water_pitcher, false);
-    registry.emplace<PlaceableComponent>(water_pitcher, counter4);
-    registry.emplace<IngredientComponent>(water_pitcher, "water", true);
-    registry.emplace<SpriteComponent>(water_pitcher, 5, 
-        std::vector<Rectangle>{{672, 624, 48, 96}}, 0, Vector2{24.0f, 72.0f});
-    
-
-    entt::entity kettle = registry.create();
-    registry.emplace<PositionComponent>(kettle, Vector2{10.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(kettle, true, false);
-    registry.emplace<HoldableComponent>(kettle, false);
-    registry.emplace<PlaceableComponent>(kettle, counter6);
-    registry.emplace<IngredientComponent>(kettle, "hot water", true);
-    registry.emplace<SpriteComponent>(kettle, 5, 
-        std::vector<Rectangle>{{672, 1104, 48, 96}}, 0, Vector2{24.0f, 96.0f});
-
-
-    entt::entity milk_jug = registry.create();
-    registry.emplace<PositionComponent>(milk_jug, Vector2{11.5f * GRID_SIZE, 6.5f * GRID_SIZE});
-    registry.emplace<InteractableComponent>(milk_jug, true, false);
-    registry.emplace<HoldableComponent>(milk_jug, false);
-    registry.emplace<PlaceableComponent>(milk_jug, counter7);
-    registry.emplace<IngredientComponent>(milk_jug, "milk", true);
-    registry.emplace<SpriteComponent>(milk_jug, 5, 
-        std::vector<Rectangle>{{720, 336, 48, 48}}, 0, Vector2{16.0f, 56.0f});
 }
 
 void reserve_memory()
 {
-    queue.reserve(total_customers_today[5]);
-    available_tables.reserve(5);
+    if (is_first_run)
+    {
+        customers.reserve(total_customers_today[5]);
+        queue.reserve(total_customers_today[5]);
+        available_tables.reserve(5);   
+
+        is_first_run = false;
+    }
 }
 
-void read_player_input(entt::registry& registry, entt::entity& player)
+void setup_camera()
 {
-    //MOVEMENT
-    Vector2 forces = Vector2Zero(); // every frame set the forces to a 0 vector
-
-    // Adds forces with the magnitude of 200 in the direction given by WASD inputs
-    if(IsKeyDown(KEY_W)) {
-        forces = Vector2Add(forces, {0, -200});
-    }
-    if(IsKeyDown(KEY_A)) {
-        forces = Vector2Add(forces, {-200, 0});
-    }
-    if(IsKeyDown(KEY_S)) {
-        forces = Vector2Add(forces, {0, 200});
-    }
-    if(IsKeyDown(KEY_D)) {
-        forces = Vector2Add(forces, {200, 0});
-    }
-
-    AccelerationComponent& a = registry.get<AccelerationComponent>(player);
-    PhysicsComponent& p1_phy = registry.get<PhysicsComponent>(player);
-    // Does Vector - Scalar multiplication with the sum of all forces and the inverse mass of the ball
-    a.acceleration = Vector2Scale(forces, p1_phy.inverse_mass);
-
-    if (Vector2Length(forces) > 0)
-    {
-        DirectionComponent& dir = registry.get<DirectionComponent>(player);
-        dir.forward = Vector2Normalize(forces);
-    }
-
-    //INTERACT
-    InteractorComponent& interactor = registry.get<InteractorComponent>(player);
-
-    if(IsKeyPressed(KEY_X) && interactor.hot_item != entt::null)
-    {
-        MoneyComponent* payment = registry.try_get<MoneyComponent>(interactor.hot_item);
-        if (payment)
-        {
-            // add payment to score
-            score += payment->amount;
-            day_score += payment->amount;
-
-            // update table's status
-            PlaceableComponent& placeable = registry.get<PlaceableComponent>(interactor.hot_item);
-            TableComponent& table = registry.get<TableComponent>(placeable.table);
-            table.hasItemOnTop = false;
-
-            InteractableComponent& i = registry.get<InteractableComponent>(placeable.table);
-            i.isEnabled = true;
-
-            // update placeable's "table" to null
-            placeable.table = entt::null;
-
-            // destroy money object
-            registry.destroy(interactor.hot_item);
-            
-            // set hot item to null
-            interactor.hot_item = entt::null;
-            
-            return;
-        }
-
-        HolderComponent& holder = registry.get<HolderComponent>(player);
-
-        // if there is no held item
-        if (holder.held_item == entt::null)
-        {
-            HoldableComponent* holdable = registry.try_get<HoldableComponent>(interactor.hot_item);
-
-            // if hot item is holdable
-            if (holdable)
-            {
-                // set held item to hot item
-                holder.held_item = interactor.hot_item;
-                holdable->isHeld = true;
-
-                // make held item not interactable and not hot
-                InteractableComponent& item = registry.get<InteractableComponent>(interactor.hot_item);
-                item.isEnabled = false;
-                item.isHot = false;
-
-                // update table's status
-                PlaceableComponent& placeable = registry.get<PlaceableComponent>(interactor.hot_item);
-                TableComponent& table = registry.get<TableComponent>(placeable.table);
-                table.hasItemOnTop = false;
-
-                InteractableComponent& i = registry.get<InteractableComponent>(placeable.table);
-                i.isEnabled = true;
-
-                // update placeable's "table" to null
-                placeable.table = entt::null;
-
-                // set hot item to null
-                interactor.hot_item = entt::null;
-
-                DrinkComponent* drink = registry.try_get<DrinkComponent>(holder.held_item);
-                if (drink)
-                    std::cout << "Got " << drink->name << "\n";
-                else
-                {
-                    IngredientComponent* ingredient = registry.try_get<IngredientComponent>(holder.held_item);
-                    if (ingredient)
-                        std::cout << "Got " << ingredient->name << "\n";
-                }
-                
-                return;
-            }
-
-            StackComponent* stack = registry.try_get<StackComponent>(interactor.hot_item);
-
-            // else if hot item is stack
-            if (stack)
-            {
-                // create a new entity (an object from the stack)
-                entt::entity new_entity = registry.create();
-
-                registry.emplace<PositionComponent>(new_entity, Vector2Zero());     // position doesnt matter if held
-                registry.emplace<InteractableComponent>(new_entity, false, false);  // not enabled, not hot
-                registry.emplace<HoldableComponent>(new_entity, true);              // is held
-                registry.emplace<PlaceableComponent>(new_entity, entt::null);       // not placed on anything
-
-                if (stack->type == "cup")
-                {
-                    registry.emplace<DrinkComponent>(new_entity, "empty");
-
-                    registry.emplace<SpriteComponent>(new_entity, 5, 
-                        std::vector<Rectangle>{{48, 960, 48, 48}}, 0, Vector2{24.0f, 48.0f});
-                    
-
-                    std::cout << "Got empty cup\n"; 
-                }
-                else if (stack->type == "ingredient")
-                {
-                    IngredientComponent& ingredient = registry.get<IngredientComponent>(interactor.hot_item);
-                    registry.emplace<IngredientComponent>(new_entity, ingredient.name);
-
-                    registry.emplace<SpriteComponent>(new_entity, 0,
-                        std::vector<Rectangle>{{0, 0, 16, 16}, {16, 0, 16, 16}, {32, 0, 16, 16},
-                        {48, 0, 16, 16}, {64, 0, 16, 16}, {80, 0, 16, 16}, {96, 0, 16, 16}, 
-                        {112, 0, 16, 16}}, 0, Vector2{24.0f, 32.0f});
-                    
-                    std::cout << "Got " << ingredient.name << "\n";
-                }
-
-                // set held item to new entity
-                holder.held_item = new_entity;
-
-                // set hot item to null
-                interactor.hot_item = entt::null;
-                
-                return;
-            }
-        }
-
-        // else if there is a held item
-        else
-        {
-            HolderComponent& holder = registry.get<HolderComponent>(player);
-            CoffeeMachineComponent* machine = registry.try_get<CoffeeMachineComponent>(interactor.hot_item);
-
-            // if hot item is a coffee machine
-            if (machine)
-            {
-                IngredientComponent* ingredient = registry.try_get<IngredientComponent>(holder.held_item);
-
-                // if holding an ingredient
-                if (ingredient)
-                {
-                    // if holding coffee bean / grounds and machine has no coffee yet
-                    if (ingredient->name == "coffee bean" && !machine->hasCoffeeGrounds)
-                    {
-                        // fill machine with coffee
-                        machine->hasCoffeeGrounds = true;
-
-                        // destroy entity
-                        registry.destroy(holder.held_item);
-
-                        // remove it from the hands of holder
-                        holder.held_item = entt::null;
-
-                        std::cout << "Filled machine with coffee grounds\n";
-                    }
-
-                    // else if holding water pitcher and machine has no water yet
-                    else if (ingredient->name == "water" && !machine->hasWater)
-                    {
-                        // fill machine with water
-                        machine->hasWater = true;
-
-                        std::cout << "Filled machine with water\n";
-                    }
-                }
-                else
-                {
-                    DrinkComponent* drink = registry.try_get<DrinkComponent>(holder.held_item);
-
-                    // if held item is an empty cup, and the machine has no cup yet
-                    if (drink && drink->name == "empty" && machine->drink == entt::null)
-                    {
-                        // set cup on coffee machine
-                        PositionComponent& machine_pos = registry.get<PositionComponent>(interactor.hot_item);
-                        PositionComponent& cup_pos = registry.get<PositionComponent>(holder.held_item);
-                        cup_pos.position = Vector2Add(machine_pos.position, {0.0f, GRID_SIZE * 0.15f});
-
-                        PlaceableComponent& placeable = registry.get<PlaceableComponent>(holder.held_item);
-                        placeable.table = interactor.hot_item;
-
-                        machine->drink = holder.held_item;
-
-                        // keep cup not interactable, coffee machine interactable
-
-                        // remove cup from hands of holder
-                        HoldableComponent& holdable = registry.get<HoldableComponent>(holder.held_item);
-                        holdable.isHeld = false;
-
-                        holder.held_item = entt::null;
-
-                        std::cout << "Placed cup in machine\n";
-                    }
-                }
-
-                TimerComponent& timer = registry.get<TimerComponent>(interactor.hot_item);
-
-                // if timer has not been set, and coffee machine is all set up
-                if (FloatEquals(timer.time, 0.0f) &&
-                    machine->hasCoffeeGrounds && machine->hasWater && machine->drink != entt::null)
-                {
-                    // disable interactions with machine
-                    InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
-                    i.isEnabled = false;
-                    i.isHot = false;
-
-                    // remove coffee grounds and water
-                    machine->hasCoffeeGrounds = false;
-                    machine->hasWater = false;
-
-                    // set timer
-                    timer.time = brew_time;
-
-                    std::cout << "Activated coffee machine for " << timer.time << " seconds\n";
-                }
-
-                // set hot item to null
-                interactor.hot_item = entt::null;
-
-                return;
-            }
-
-            CustomerComponent* customer = registry.try_get<CustomerComponent>(interactor.hot_item);
-
-            // else if the hot item is a customer
-            if (customer)
-            {
-                DrinkComponent* drink = registry.try_get<DrinkComponent>(holder.held_item);
-
-                // if holding drink and drink is the customer's order
-                if (drink && drink->name == customer->order)
-                {
-                    // make customer not interactable
-                    InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
-                    i.isEnabled = false;
-                    i.isHot = false;
-
-                    // put drink on customer
-                    PositionComponent& drink_pos = registry.get<PositionComponent>(holder.held_item);
-                    PositionComponent& customer_pos = registry.get<PositionComponent>(interactor.hot_item);
-                    drink_pos.position = Vector2Add(customer_pos.position, {radius / 1.5f, radius / 1.5f});
-
-                    customer->drink = holder.held_item;
-
-                    // let customer eat
-                    customer->state = "Eating";
-
-                    TimerComponent& timer = registry.get<TimerComponent>(interactor.hot_item);
-                    timer.time = consume_time;
-
-                    // remove item from hands of holder
-                    HoldableComponent& holdable = registry.get<HoldableComponent>(holder.held_item);
-                    holdable.isHeld = false;
-
-                    holder.held_item = entt::null;
-
-                    // set hot item to null
-                    interactor.hot_item = entt::null;
-
-                    std::cout << "Served customer with " << customer->order << "\n";
-
-                    return;
-                }
-            }
-
-            TableComponent* table = registry.try_get<TableComponent>(interactor.hot_item);
-
-            // else if the hot item is a table,
-            if (table)
-            {
-                table->hasItemOnTop = true;
-
-                // make table not interactable
-                InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
-                i.isEnabled = false;
-                i.isHot = false;
-
-                // set held item on top of table
-                PositionComponent& table_pos = registry.get<PositionComponent>(interactor.hot_item);
-                PositionComponent& item_pos = registry.get<PositionComponent>(holder.held_item);
-                item_pos.position = table_pos.position;
-
-                PlaceableComponent& placeable = registry.get<PlaceableComponent>(holder.held_item);
-                placeable.table = interactor.hot_item;
-
-                // make item interactable
-                InteractableComponent& item = registry.get<InteractableComponent>(holder.held_item);
-                item.isEnabled = true;
-
-                HoldableComponent& holdable = registry.get<HoldableComponent>(holder.held_item);
-                holdable.isHeld = false;
-
-                // remove item from hands of holder
-                holder.held_item = entt::null;
-
-                // set hot item to null
-                interactor.hot_item = entt::null;
-
-                return;
-            }
-
-            DrinkComponent* drink = registry.try_get<DrinkComponent>(interactor.hot_item);
-
-            // else if hot item is a drink
-            if (drink)
-            {
-                IngredientComponent* ingredient = registry.try_get<IngredientComponent>(holder.held_item);
-                
-                // if holding an ingredient (inside a pitcher), and
-                // if the combination of the drink and ingredient is valid / is in the map data structure
-                if ( ingredient && ingredient->isPitcher && combine.find( std::make_pair(drink->name, ingredient->name) ) != combine.end() )
-                {
-                    std::cout << "Combined " << drink->name << " and " << ingredient->name;
-
-                    // combine ingredient with drink
-                    drink->name = combine[std::make_pair(drink->name, ingredient->name)];
-
-                    // update visuals of drink
-                    SpriteComponent* drink_sprite = registry.try_get<SpriteComponent>(interactor.hot_item);
-                    if (drink_sprite)
-                    {
-                        if (drink->name == "water")
-                        {
-                            drink_sprite->sprite_id = 6;
-                        }
-                        else if (drink->name == "americano")
-                        {
-                            drink_sprite->sprite_id = 8;
-                        }
-                        else if (drink->name == "cappuccino")
-                        {
-                            drink_sprite->sprite_id = 9;
-                        }
-
-                        drink_sprite->frames = std::vector<Rectangle>{{0, 0, 48, 48}};
-                        drink_sprite->origin = Vector2{24.0f, 48.0f};
-                    }
-
-                    std::cout << " into " << drink->name << "\n";
-
-                    // set hot item to null
-                    interactor.hot_item = entt::null;
-
-                    return;
-                }
-            }
-        }
-    }
+    PositionComponent& player_pos = registry.get<PositionComponent>(player->entity);
+
+    camera_view = {0};
+    camera_view.target = player_pos.position;
+    camera_view.offset = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+    camera_view.zoom = 1.0f;
 }
 
-void update_customers(entt::registry& registry)
+void update_player()
+{
+    player->Update(TIMESTEP);
+
+    // "CHEAT" control to auto end day (for demo)
+    // if (IsKeyDown(KEY_P))
+    // {
+    //     if (day == total_days)
+    //         button_name = "End Game";
+    //     else
+    //         button_name = "Next Day";
+    // }
+
+    PositionComponent& player_pos = registry.get<PositionComponent>(player->entity);
+    camera_view.target = player_pos.position;
+
+    if (max.x - player_pos.position.x <= WINDOW_WIDTH / 2)
+        camera_view.offset.x = WINDOW_WIDTH - (max.x - player_pos.position.x);
+    else if (player_pos.position.x - min.x <= WINDOW_WIDTH / 2)
+        camera_view.offset.x = player_pos.position.x - min.x;
+    else
+        camera_view.offset.x = WINDOW_WIDTH / 2;
+
+    if (max.y - player_pos.position.y <= WINDOW_HEIGHT / 2)
+        camera_view.offset.y = WINDOW_HEIGHT - (max.y - player_pos.position.y);
+    else if (player_pos.position.y - min.y <= WINDOW_HEIGHT / 2)
+        camera_view.offset.y = player_pos.position.y - min.y;
+    else
+        camera_view.offset.y = WINDOW_HEIGHT / 2;
+}
+
+void update_customers()
 {
     int customer_count = 0;
 
-    auto customers = registry.view<CustomerComponent>();
-    for (auto entity : customers)
+    for (int i = 0; i < customers.size(); i++)
     {
+        if (customers[i] == nullptr) continue;
+
         customer_count++;
 
-        CustomerComponent& customer = registry.get<CustomerComponent>(entity);
-
-        if (customer.state == "Queuing")
+        Customer* customer = customers[i];
+        customer->Update(TIMESTEP);
+        
+        if (customer->has_left)
         {
-            if (available_tables.size() > 0)
+            if (customer->GetCurrentState() == "Eating")
             {
-                std::cout << "There is a free table!\n";
+                CustomerComponent& c = registry.get<CustomerComponent>(customers[i]->entity);
 
-                // assign table
-                int index = GetRandomValue(0, available_tables.size());
-                customer.table = available_tables[index];
+                TableComponent& table = registry.get<TableComponent>(c.table);
+                table.hasItemOnTop = true;
 
-                DiningTableComponent* dining_table = registry.try_get<DiningTableComponent>(available_tables[index]);
+                PositionComponent& table_pos = registry.get<PositionComponent>(c.table);
+             
+                // put payment on table   
+                entt::entity payment = registry.create();
+                registry.emplace<PositionComponent>(payment, table_pos.position);
+                registry.emplace<InteractableComponent>(payment, true, false);
+                registry.emplace<MoneyComponent>(payment, price[c.order] * (1.0f + c.patience / 60.0f));
+                registry.emplace<PlaceableComponent>(payment, c.table);
 
-                if (!dining_table)
+                registry.emplace<SpriteComponent>(payment, coffee_tools,
+                                                        std::vector<Rectangle>{
+                                                            {32,0,16,16}
+                                                        }, 0, Vector2{16.0f, 16.0f});
+
+                MoneyComponent& money = registry.get<MoneyComponent>(payment);
+
+                while(money.amount <= 0.0f)
                 {
-                    std::cout << "Failed to get dining table\n";
-                    continue;
+                    money.amount = price[c.order] * (1.0f + c.patience / 60.0f);
                 }
-
-                std::cout << "Assigned customer to table";
-
-                // put customer on table's chair
-                PositionComponent& customer_pos = registry.get<PositionComponent>(entity);
-                PositionComponent& chair_pos = registry.get<PositionComponent>(dining_table->chair1);
-                customer_pos.position = chair_pos.position;
-
-                ChairComponent& chair = registry.get<ChairComponent>(dining_table->chair1);
-                chair.customer = entity;
-
-                std::cout << ", teleported them to their seat";
-
-                // select an order and set state to ordering
-                int i = GetRandomValue(0, drinks_on_menu-1);
-
-                std::cout << ", rng worked";
-
-                // source: https://www.w3schools.com/cpp/cpp_exceptions.asp
-                try {
-                    customer.order = drinks[i];
-                }
-                catch (...) {
-                    std::cout << ", error occurred with getting the drink\n";
-                    continue;
-                }
-                
-                customer.state = "Ordering";
-
-                std::cout << ", and customer orders " << drinks[i] << "\n";
-
-                // make customer interactable
-                InteractableComponent& interactable = registry.get<InteractableComponent>(entity);
-                interactable.isEnabled = true;
-
-                // make table unavailable
-                available_tables.erase(available_tables.begin() + index);
-
-                std::cout << "Table not available anymore\n";
-
-                continue;
-            }
-
-            customer.patience -= TIMESTEP;
-
-            if (customer.patience <= 0.0f)
-            {
-                // remove first customer in queue
-                // (they will definitely be the first to lose patience)
-                // source: https://www.w3schools.com/cpp/ref_vector_erase.asp
-                queue.erase(queue.begin());
 
                 // customer leaves
-                registry.destroy(entity);
+                registry.destroy(customers[i]->entity);
 
+                // delete pointer
+                delete customers[i];
+                customers[i] = nullptr;
+            }
+            else
+            {
                 std::cout << "Customer lost patience\n";
+
+                // customer leaves
+                registry.destroy(customers[i]->entity);
+
+                // delete pointer
+                delete customers[i];
+                customers[i] = nullptr;
 
                 customers_not_served++;
 
@@ -788,45 +521,30 @@ void update_customers(entt::registry& registry)
                     // lose
                     button_name = "Redo Day";
 
-                    score -= day_score;
-                    score -= 25;
-                }
-            }
-        }
-        else if (customer.state == "Ordering")
-        {
-            customer.patience -= TIMESTEP;
+                    queue.clear();
 
-            if (customer.patience <= 0.0f)
-            {
-                DiningTableComponent& dining_table = registry.get<DiningTableComponent>(customer.table);
-                ChairComponent& chair = registry.get<ChairComponent>(dining_table.chair1);
+                    for (int i = 0; i < customers.size(); i++)
+                    {
+                        if (customers[i] != nullptr)
+                        {
+                            delete customers[i];
+                            customers[i] = nullptr;
+                        }
+                    }
 
-                chair.customer = entt::null;
-
-                // customer leaves
-                registry.destroy(entity);
-
-                std::cout << "Customer lost patience\n";
-
-                customers_not_served++;
-
-                if (customers_not_served == fail_threshold)
-                {
-                    std::cout << "Too many customers left\n";
-                    // lose
-                    button_name = "Redo Day";
+                    customers.clear();
 
                     score -= day_score;
                     score -= 25;
                 }
             }
         }
-        // else, is eating
     }
 
     if (customer_count == 0 && customers_so_far == total_customers_today[day])
     {
+        customers.clear();
+
         // end day / win
         if (day == total_days)
             button_name = "End Game";
@@ -835,7 +553,7 @@ void update_customers(entt::registry& registry)
     }
 }
 
-void affect_velocities(entt::registry& registry)
+void affect_velocities()
 {
     // make acceleration and friction affect velocity
     auto affect_velocity = registry.view<AccelerationComponent, PhysicsComponent>();
@@ -850,7 +568,7 @@ void affect_velocities(entt::registry& registry)
     }
 }
 
-void move_entities(entt::registry& registry)
+void move_entities()
 {
     auto move = registry.view<MoveComponent>();
     for (auto entity : move)
@@ -862,7 +580,7 @@ void move_entities(entt::registry& registry)
     }
 }
 
-void circle_rectangle_collision(entt::registry& registry, entt::entity& circle, entt::entity& rectangle)
+void circle_rectangle_collision(entt::entity& circle, entt::entity& rectangle)
 {
     // circle components
     PhysicsComponent& c_phy = registry.get<PhysicsComponent>(circle);
@@ -929,7 +647,7 @@ void circle_rectangle_collision(entt::registry& registry, entt::entity& circle, 
     }
 }
 
-void handle_collisions(entt::registry& registry)
+void handle_collisions()
 {
     // moving circle colliding with squares
     auto moving_physics = registry.view<PhysicsComponent, MoveComponent>();
@@ -944,77 +662,12 @@ void handle_collisions(entt::registry& registry)
             if (e1 == e2)
                 continue;
 
-            circle_rectangle_collision(registry, e1, e2);
+            circle_rectangle_collision(e1, e2);
         }
     }
 }
 
-void get_hot_items(entt::registry& registry)
-{
-    auto interactors = registry.view<InteractorComponent>();
-    for (auto e : interactors)
-    {
-        InteractorComponent& interactor = registry.get<InteractorComponent>(e);
-
-        // if there was a previous hot item, reset its status
-        if (interactor.hot_item != entt::null)
-        {
-            InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
-            i.isHot = false;
-            i.isEnabled = true;
-
-            interactor.hot_item = entt::null;
-        }
-
-        float highest_dot = 0; // highest dot product = closest to forward direction of interactor
-        float minDistance = -1;
-
-        PositionComponent& pos = registry.get<PositionComponent>(e);
-        DirectionComponent& dir = registry.get<DirectionComponent>(e);
-
-        auto interactable = registry.view<InteractableComponent>();
-        for (auto entity : interactable)
-        {
-            InteractableComponent& i = registry.get<InteractableComponent>(entity);
-            if (!i.isEnabled) continue;
-
-            PositionComponent& item_pos = registry.get<PositionComponent>(entity);
-            Vector2 interactor_to_item = Vector2Subtract(item_pos.position, pos.position);
-            float distance = Vector2Length(interactor_to_item);
-
-            // if item is within range of interactor,
-            if (distance <= interact_range)
-            {
-                float dotProduct = Vector2DotProduct(dir.forward, Vector2Normalize(interactor_to_item));
-                
-                // if item is within 90 degrees of interactor's fov and has higher dot product than the last hot item
-                // (no need to check for > 0 since initial value of highest_dot is 0)
-                if (dotProduct > highest_dot)
-                {
-                    highest_dot = dotProduct;
-                    minDistance = distance;
-                    interactor.hot_item = entity;
-                }
-
-                // else if this has the same dot product as the highest so far (greater than 0), the closer will be the hot item
-                else if (dotProduct == highest_dot && dotProduct > 0 && distance < minDistance)
-                {
-                    minDistance = distance;
-                    interactor.hot_item = entity;                
-                }
-            }
-        }
-
-        // if there is a new hot item, set it to hot
-        if (interactor.hot_item != entt::null)
-        {
-            InteractableComponent& i = registry.get<InteractableComponent>(interactor.hot_item);
-            i.isHot = true;
-        }
-    }
-}
-
-void update_timers(entt::registry& registry, entt::entity& spawn_timer)
+void update_timers()
 {
     auto timer = registry.view<TimerComponent>();
     for (auto entity : timer)
@@ -1031,25 +684,25 @@ void update_timers(entt::registry& registry, entt::entity& spawn_timer)
 
                 if (entity == spawn_timer)
                 {
-                    // bring customer to queue
-                    entt::entity new_customer = registry.create();
-                    registry.emplace<CircleComponent>(new_customer, radius);
-                    registry.emplace<PositionComponent>(new_customer, Vector2{-radius, -radius});
-                    registry.emplace<MoveComponent>(new_customer, Vector2Zero());
-                    registry.emplace<DirectionComponent>(new_customer, Vector2{0.0f, 1.0f});
-                    registry.emplace<InteractableComponent>(new_customer, false, false);
-                    registry.emplace<TimerComponent>(new_customer, 0.0f);
-                    registry.emplace<CustomerComponent>(new_customer, 100.0f, "Queuing", "", entt::null, entt::null);
+                    std::cout << "Choosing customer's drink..\n";
 
-                    queue.push_back(new_customer);
+                    int i = GetRandomValue(0, drinks_on_menu-1);
+
+                    std::cout << "Spawning customer..\n";
+
+                    // bring customer to queue
+                    queue.emplace_back();
+                    queue.back() = new Customer(drinks[i]);
+
+                    std::cout << "Customer joined the queue\n";
+
+                    customers.push_back(queue.back());
 
                     customers_so_far++;
 
                     // set timer for next customer
                     if (total_customers_today[day] - customers_so_far > 0)
-                        ent_timer.time = (time_per_day - head_start_time) / (total_customers_today[day] - customers_so_far);
-
-                    std::cout << "Customer joined the queue\n";
+                        ent_timer.time = customer_spawn_time;
 
                     continue;
                 }
@@ -1077,69 +730,30 @@ void update_timers(entt::registry& registry, entt::entity& spawn_timer)
 
                     continue;
                 }
-
-                CustomerComponent* customer = registry.try_get<CustomerComponent>(entity);
-                if (customer)
-                {
-                    TableComponent& table = registry.get<TableComponent>(customer->table);
-                    table.hasItemOnTop = true;
-
-                    InteractableComponent& i = registry.get<InteractableComponent>(customer->table);
-                    i.isEnabled = false;
-                    i.isHot = false;
-
-                    PositionComponent& table_pos = registry.get<PositionComponent>(customer->table);
-
-                    // put payment on table
-                    entt::entity payment = registry.create();
-                    registry.emplace<PositionComponent>(payment, table_pos.position);
-                    registry.emplace<InteractableComponent>(payment, true, false);
-                    registry.emplace<MoneyComponent>(payment, price[customer->order] * (1.0f + customer->patience / 100.0f));
-                    registry.emplace<PlaceableComponent>(payment, customer->table);
-
-                    registry.emplace<SpriteComponent>(payment, 2,
-                                                        std::vector<Rectangle>{
-                                                            {32,0,16,16}
-                                                        }, 0, Vector2{16.0f, 16.0f});
-                    // destroy drink
-                    registry.destroy(customer->drink);
-
-                    // remove customer from chair
-                    DiningTableComponent& dining_table = registry.get<DiningTableComponent>(customer->table);
-                    ChairComponent& chair = registry.get<ChairComponent>(dining_table.chair1);
-                    chair.customer = entt::null;
-
-                    // destroy customer
-                    registry.destroy(entity);
-
-                    continue;
-                }
             }
         }
     }
 }
 
-void draw_level(entt::registry& registry, entt::entity& player)
+void draw_level()
 {
     // with sprites, do: view<sprite, __> where __ is the type of thing it is
     // (e.g. floor, object, interactable, customer, player) or smth like that
 
     // level layout
-    for (int i = 0; i < WINDOW_WIDTH / GRID_SIZE; i++)
-    {
-        for (int j = 0; j < WINDOW_HEIGHT / GRID_SIZE; j++)
-        {
-            Vector2 position = {i * GRID_SIZE, j * GRID_SIZE};
 
-            DrawLineV(position, Vector2Add(position, {GRID_SIZE, 0.0f}), BLACK);
-            DrawLineV(position, Vector2Add(position, {0.0f, GRID_SIZE}), BLACK);
-            DrawLineV(Vector2Add(position, {GRID_SIZE, GRID_SIZE}), Vector2Add(position, {GRID_SIZE, 0.0f}), BLACK);
-            DrawLineV(Vector2Add(position, {GRID_SIZE, GRID_SIZE}), Vector2Add(position, {0.0f, GRID_SIZE}), BLACK);
+    // draw floor all over the map
+    for (int i = 0; i < 24; i++)
+    {
+        for (int j = 0; j < 24; j++)
+        {
+            // disregard borders
+            if (i == 0 || j == 0 || i == 23 || j == 24) continue;
+
+            DrawTexturePro(kitchen, tiles[9], {(i + 0.5f) * GRID_SIZE, (j + 0.5f) * GRID_SIZE, GRID_SIZE, GRID_SIZE},
+                            {24, 24}, 0.0f, WHITE);
         }
     }
-
-    // obstacles
-    available_tables.clear();
 
     auto sprite = registry.view<SpriteComponent>();
     for (auto entity : sprite)
@@ -1165,36 +779,6 @@ void draw_level(entt::registry& registry, entt::entity& player)
 
         s.frame_number = s.frame_number + 1;
         if (s.frame_number >= s.frames.size()) s.frame_number = 0;
-    }
-
-    auto obstacle = registry.view<TableComponent>();
-    for (auto entity : obstacle)
-    {
-        CoffeeMachineComponent* machine = registry.try_get<CoffeeMachineComponent>(entity);
-        if (machine) continue;
-
-        PositionComponent& p = registry.get<PositionComponent>(entity);
-        InteractableComponent& item = registry.get<InteractableComponent>(entity);
-        SquareComponent& square = registry.get<SquareComponent>(entity);
-
-        DiningTableComponent* dining = registry.try_get<DiningTableComponent>(entity);
-        if (dining)
-        {
-            ChairComponent& chair = registry.get<ChairComponent>(dining->chair1);
-            TableComponent& table = registry.get<TableComponent>(entity);
-
-            // if no customer and nothing on the table
-            if (chair.customer == entt::null && !table.hasItemOnTop)
-                available_tables.push_back(entity);
-        }
-    }
-
-    auto chair = registry.view<ChairComponent>();
-    for (auto entity : chair)
-    {
-        PositionComponent& p = registry.get<PositionComponent>(entity);
-        SquareComponent& square = registry.get<SquareComponent>(entity);
-
     }
 
     auto machine = registry.view<CoffeeMachineComponent>();
@@ -1224,8 +808,7 @@ void draw_level(entt::registry& registry, entt::entity& player)
         CustomerComponent* customer = registry.try_get<CustomerComponent>(entity);
         if (customer) continue;
 
-        HolderComponent& holder = registry.get<HolderComponent>(player);
-
+        HolderComponent& holder = registry.get<HolderComponent>(player->entity);
         if (holder.held_item == entity) continue;
 
         PositionComponent& p = registry.get<PositionComponent>(entity);
@@ -1272,18 +855,21 @@ void draw_level(entt::registry& registry, entt::entity& player)
     }
 
     // customers
-    auto customer = registry.view<CustomerComponent>();
-    for (auto entity : customer)
+    for (int i = 0; i < customers.size(); i++)
     {
+        if (customers[i] == nullptr) continue;
+
+        entt::entity entity = customers[i]->entity;
+
         PositionComponent& pos = registry.get<PositionComponent>(entity);
         CircleComponent& rad = registry.get<CircleComponent>(entity);
-        InteractableComponent& i = registry.get<InteractableComponent>(entity);
+        InteractableComponent& inter = registry.get<InteractableComponent>(entity);
         CustomerComponent& c = registry.get<CustomerComponent>(entity);
 
-        if (i.isHot) DrawCircleV(pos.position, rad.radius, PURPLE);
+        if (inter.isHot) DrawCircleV(pos.position, rad.radius, PURPLE);
         else DrawCircleV(pos.position, rad.radius, DARKPURPLE);
 
-        if (c.state == "Ordering")
+        if (customers[i]->GetCurrentState() == "Ordering")
         {
             int order_index = 0;
             if (c.order == "water")
@@ -1311,14 +897,13 @@ void draw_level(entt::registry& registry, entt::entity& player)
                     {pos.position.x - 10, pos.position.y - 20, 48, 48},
                         Vector2{24.0f, 32.0f}, 0.0f, WHITE);
         }
-            
     }
 
     // player
-    PositionComponent& pos = registry.get<PositionComponent>(player);
-    CircleComponent& rad = registry.get<CircleComponent>(player);
+    PositionComponent& pos = registry.get<PositionComponent>(player->entity);
+    CircleComponent& rad = registry.get<CircleComponent>(player->entity);
 
-    SpriteComponent& s = registry.get<SpriteComponent>(player);
+    SpriteComponent& s = registry.get<SpriteComponent>(player->entity);
 
     Rectangle src = s.frames[s.frame_number];
 
@@ -1328,8 +913,8 @@ void draw_level(entt::registry& registry, entt::entity& player)
     s.frame_number = s.frame_number + 1;
     if (s.frame_number >= s.frames.size()) s.frame_number = 0;
 
-    //[TEMP?] draw held item
-    HolderComponent& holder = registry.get<HolderComponent>(player);
+    // draw held item
+    HolderComponent& holder = registry.get<HolderComponent>(player->entity);
     if (holder.held_item != entt::null)
     {
         SpriteComponent* s = registry.try_get<SpriteComponent>(holder.held_item);
@@ -1353,12 +938,4 @@ void draw_level(entt::registry& registry, entt::entity& player)
         s->frame_number = s->frame_number + 1;
         if (s->frame_number >= s->frames.size()) s->frame_number = 0;
     }
-
-    // score
-    DrawText(TextFormat("Score: %04i",int(score)), 300, 30, 30, BLACK);
-    DrawText("X to interact!\nWASD to move.", 600, 627, 20, BLACK);
-
-    DrawText("Recipes!", 15, 632, 30, BLACK);
-    DrawTexturePro(textures[11], {0, 0, 768, 96}, {0, 672, 768, 96}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
-                        
 }

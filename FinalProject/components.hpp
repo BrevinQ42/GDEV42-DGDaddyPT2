@@ -1,4 +1,35 @@
 #include "json.hpp"
+#include "entt.hpp"
+
+const float GRID_SIZE = 48.0f;
+const float radius = 16.0f;
+
+float brew_time = 10.0f;
+
+float score = 0;
+float day_score = 0;
+
+entt::registry registry;
+std::vector<entt::entity> available_tables;
+
+// TEXTURES
+Texture bean;
+Texture hot_coffee;
+Texture coffee_tools;
+Texture iced_coffee;
+Texture user;
+Texture kitchen;
+Texture water;
+Texture espresso;
+Texture americano;
+Texture cappuccino;
+Texture order;
+Texture recipes;
+
+Texture textures[12] = {
+    bean, hot_coffee, coffee_tools, iced_coffee, user, kitchen,
+    water, espresso, americano, cappuccino, order, recipes
+};
 
 struct CircleComponent
 {
@@ -210,7 +241,6 @@ struct TimerComponent
 struct CustomerComponent
 {
 	float patience;
-	std::string state;
 	std::string order;
 	entt::entity table;
 	entt::entity drink;
