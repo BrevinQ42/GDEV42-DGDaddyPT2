@@ -35,9 +35,6 @@ int customers_not_served = 0;
 float total_customers_today[6] = {0, 4, 6, 8, 10, 12};
 float customers_so_far = 0;
 
-float score = 0;
-float day_score = 0;
-
 std::string button_name = "";
 
 Player* player = nullptr;
@@ -437,42 +434,6 @@ void update_player()
     //         button_name = "Next Day";
     // }
 
-    //INTERACT
-    InteractorComponent& interactor = registry.get<InteractorComponent>(player->entity);
-
-    if(IsKeyPressed(KEY_X) && interactor.hot_item != entt::null)
-    {
-        MoneyComponent* payment = registry.try_get<MoneyComponent>(interactor.hot_item);
-        if (payment)
-        {
-            // add payment to score
-            score += payment->amount;
-            day_score += payment->amount;
-
-            // update table's status
-            PlaceableComponent& placeable = registry.get<PlaceableComponent>(interactor.hot_item);
-            TableComponent& table = registry.get<TableComponent>(placeable.table);
-            table.hasItemOnTop = false;
-
-            InteractableComponent& i = registry.get<InteractableComponent>(placeable.table);
-            i.isEnabled = true;
-
-            // make table available
-            available_tables.push_back(placeable.table);
-
-            // update placeable's "table" to null
-            placeable.table = entt::null;
-
-            // destroy money object
-            registry.destroy(interactor.hot_item);
-            
-            // set hot item to null
-            interactor.hot_item = entt::null;
-                        
-            return;
-        }
-    }
-
     PositionComponent& player_pos = registry.get<PositionComponent>(player->entity);
     camera_view.target = player_pos.position;
 
@@ -519,7 +480,7 @@ void update_customers()
                 entt::entity payment = registry.create();
                 registry.emplace<PositionComponent>(payment, table_pos.position);
                 registry.emplace<InteractableComponent>(payment, true, false);
-                registry.emplace<MoneyComponent>(payment, price[c.order] * (1.0f + c.patience / 100.0f));
+                registry.emplace<MoneyComponent>(payment, price[c.order] * (1.0f + c.patience / 60.0f));
                 registry.emplace<PlaceableComponent>(payment, c.table);
 
                 registry.emplace<SpriteComponent>(payment, coffee_tools,
@@ -531,7 +492,7 @@ void update_customers()
 
                 while(money.amount <= 0.0f)
                 {
-                    money.amount = price[c.order] * (1.0f + c.patience / 100.0f);
+                    money.amount = price[c.order] * (1.0f + c.patience / 60.0f);
                 }
 
                 // customer leaves

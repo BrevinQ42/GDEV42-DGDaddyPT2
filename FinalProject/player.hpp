@@ -53,6 +53,8 @@ class Player
 {
 	PlayerState* current_movement_state = nullptr;
 	PlayerState* current_holding_state = nullptr;
+
+	std::list<Observer*> observers;
 public:
 	entt::entity entity;
 
@@ -76,6 +78,10 @@ public:
 	std::string GetCurrentHoldingState();
 
 	void get_hot_item();
+
+	void AddObserver(Observer* o);
+	void RemoveObserver(Observer* o);
+	void Notify(entt::entity entity);
 };
 
 #endif

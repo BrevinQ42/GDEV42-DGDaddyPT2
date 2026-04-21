@@ -47,6 +47,8 @@ public:
 class Customer
 {
 	CustomerState* current_state = nullptr;
+
+	std::list<Observer*> observers;
 public:
 	entt::entity entity;
 
@@ -63,6 +65,10 @@ public:
 	void SetState(CustomerState* state);
 
 	std::string GetCurrentState();
+
+	void AddObserver(Observer* o);
+	void RemoveObserver(Observer* o);
+	void Notify(entt::entity entity);
 };
 
 #endif

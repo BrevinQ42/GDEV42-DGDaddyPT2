@@ -1,7 +1,36 @@
 #ifndef ENTITY
 #define ENTITY
 
+#include <list>
 #include "components.hpp"
+
+class Observer
+{
+public:
+    virtual ~Observer() {}
+
+    virtual void OnNotify(entt::entity entity) = 0;
+};
+
+class ScoreObserver : public Observer
+{
+public:
+    ScoreObserver() {}
+
+    void OnNotify(entt::entity entity);
+};
+
+class CustomerArrivalObserver : public Observer
+{
+    bool has_notified;
+public:
+    CustomerArrivalObserver()
+    {
+        has_notified = false;
+    }
+
+    void OnNotify(entt::entity entity);
+};
 
 class EntityState
 {

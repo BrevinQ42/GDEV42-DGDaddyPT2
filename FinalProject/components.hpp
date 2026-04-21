@@ -5,6 +5,9 @@ const float radius = 16.0f;
 
 float brew_time = 10.0f;
 
+float score = 0;
+float day_score = 0;
+
 entt::registry registry;
 std::vector<entt::entity> available_tables;
 

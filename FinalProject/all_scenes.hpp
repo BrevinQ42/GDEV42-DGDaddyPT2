@@ -249,10 +249,8 @@ public:
         DrawText("Recipes!", 15, 632, 30, BLACK);
         DrawTexturePro(recipes, {0, 0, 768, 96}, {0, 672, 768, 96}, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 
-        // customer arrived (also possible for observer)
-        TimerComponent& timer = registry.get<TimerComponent>(spawn_timer);
-        if (timer.time > head_start_time)
-            DrawText("A Customer Arrived!", 10, 10, 20, BLACK);
+        // customer arrived
+        DrawText(customer_notif.c_str(), 10, 10, 20, LIME);
 
         // DrawText(TextFormat("Orders: %04i", balls.size()), 20, 20, 20, WHITE);
         // DrawTexturePro(raylib_logo, {0, 0, 256, 256}, {logo_position.x, logo_position.y, 200, 200}, {0, 0}, 0.0f, WHITE);

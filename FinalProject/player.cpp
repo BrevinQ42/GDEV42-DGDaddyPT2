@@ -18,6 +18,36 @@ std::map< std::pair<std::string, std::string>, std::string > combine =
     {std::make_pair("espresso", "milk"),       "cappuccino"}
 };
 
+void ScoreObserver::OnNotify(entt::entity entity)
+{
+	InteractorComponent& interactor = registry.get<InteractorComponent>(entity);
+	MoneyComponent& payment = registry.get<MoneyComponent>(interactor.hot_item);
+
+	// add payment to score
+    score += payment.amount;
+    day_score += payment.amount;
+
+    // update table's status
+    PlaceableComponent& placeable = registry.get<PlaceableComponent>(interactor.hot_item);
+    TableComponent& table = registry.get<TableComponent>(placeable.table);
+    table.hasItemOnTop = false;
+
+    InteractableComponent& i = registry.get<InteractableComponent>(placeable.table);
+    i.isEnabled = true;
+
+    // make table available
+    available_tables.push_back(placeable.table);
+
+    // update placeable's "table" to null
+    placeable.table = entt::null;
+
+    // destroy money object
+    registry.destroy(interactor.hot_item);
+    
+    // set hot item to null
+    interactor.hot_item = entt::null;
+}
+
 void Player::Update(float delta_time)
 {
 	if (current_movement_state != nullptr)
@@ -54,11 +84,19 @@ Player::Player(int x, int y)
 
 	SetMovementState(&idle);
 	SetHoldingState(&roaming);
+
+	ScoreObserver* so = new ScoreObserver();
+	AddObserver(so);
 }
 
 Player::~Player()
 {
 	registry.destroy(entity);
+
+	for(auto o = observers.begin(); o != observers.end(); o++)
+    {
+        RemoveObserver(*o);
+    }
 }
 
 void Player::SetMovementState(PlayerState* state)
@@ -97,6 +135,27 @@ std::string Player::GetCurrentHoldingState()
 		return "Holding Item";
 
 	return "null";
+}
+
+void Player::AddObserver(Observer* o)
+{
+    observers.push_back(o);
+}
+
+void Player::RemoveObserver(Observer* o)
+{
+	delete o;
+	o = nullptr;
+
+    observers.remove(o);
+}
+
+void Player::Notify(entt::entity entity)
+{
+    for(auto o = observers.begin(); o != observers.end(); o++)
+    {
+        (*o)->OnNotify(entity);
+    }
 }
 
 void Player::get_hot_item()
@@ -226,14 +285,8 @@ void PlayerRoaming::Update(float delta_time)
 		MoneyComponent* payment = registry.try_get<MoneyComponent>(interactor.hot_item);
         if (payment)
         {
-	////////////////// OBSERVER PATTERN OPT (also for end day)
-	        	////// - remove from read_player_input this part
-	            // add payment to score
-	            // score += payment->amount;
-	            // day_score += payment->amount;
-	            // ....
-	            
-	            return;
+			player->Notify(player->entity);
+	    	return;
         }
 
         HolderComponent& holder = registry.get<HolderComponent>(player->entity);

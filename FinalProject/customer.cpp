@@ -7,8 +7,9 @@
 #include <string>
 #include "customer.hpp"
 
-
 std::vector<Customer*> queue;
+
+std::string customer_notif = "";
 
 float consume_time = 15.0f;
 
@@ -16,6 +17,21 @@ void Customer::Update(float delta_time)
 {
 	if (current_state != nullptr)
 		current_state->Update(delta_time);
+}
+
+void CustomerArrivalObserver::OnNotify(entt::entity entity)
+{
+	if (has_notified) return;
+
+	// add notif that a customer arrived
+	CustomerComponent& c = registry.get<CustomerComponent>(entity);
+	if (c.patience <= 52.5f)
+	{
+		customer_notif = "";
+		has_notified = true;
+	}
+	else
+		customer_notif = "A Customer Arrived!";
 }
 
 Customer::Customer(std::string order)
@@ -26,6 +42,9 @@ Customer::Customer(std::string order)
     registry.emplace<DirectionComponent>(entity, Vector2{0.0f, 1.0f});
     registry.emplace<InteractableComponent>(entity, false, false);
     registry.emplace<CustomerComponent>(entity, 0.0f, order, entt::null, entt::null);
+
+    CustomerArrivalObserver* cao = new CustomerArrivalObserver();
+	AddObserver(cao);
 
 	queuing.customer = this;
 	ordering.customer = this;
@@ -53,6 +72,27 @@ std::string Customer::GetCurrentState()
 		return "Eating";
 
 	return "null";
+}
+
+void Customer::AddObserver(Observer* o)
+{
+    observers.push_back(o);
+}
+
+void Customer::RemoveObserver(Observer* o)
+{
+	delete o;
+	o = nullptr;
+
+    observers.remove(o);
+}
+
+void Customer::Notify(entt::entity entity)
+{
+    for(auto o = observers.begin(); o != observers.end(); o++)
+    {
+        (*o)->OnNotify(entity);
+    }
 }
 
 void CustomerOrdering::assign_customer_to_table()
@@ -104,7 +144,9 @@ void CustomerOrdering::assign_customer_to_table()
 void CustomerQueuing::Enter()
 {
 	CustomerComponent& c = registry.get<CustomerComponent>(customer->entity);
-	c.patience = 100.0f;
+	c.patience = 60.0f;
+
+	customer->Notify(customer->entity);
 }
 
 void CustomerOrdering::Enter()
@@ -135,6 +177,9 @@ void CustomerQueuing::Update(float delta_time)
 
 	CustomerComponent& c = registry.get<CustomerComponent>(customer->entity);
 	c.patience -= delta_time;
+
+	if (c.patience <= 52.5f)
+		customer->Notify(customer->entity);
 
 	if (c.patience <= 0.0f)
 	{
@@ -172,6 +217,9 @@ void CustomerOrdering::Update(float delta_time)
 	}
 
 	c.patience -= delta_time;
+
+	if (c.patience <= 52.5f)
+		customer->Notify(customer->entity);
 
 	if (c.patience <= 0.0f)
 	{	
