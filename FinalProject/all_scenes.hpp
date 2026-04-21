@@ -20,6 +20,7 @@
 #include "scene_manager.hpp"
 #include "ui.hpp"
 #include "game_functions.hpp"
+#include "archives.hpp"
 
 struct UiLibrary uiLibrary;
 
@@ -58,21 +59,18 @@ public:
         }
         if (uiLibrary.Button(0, "Start game"))
         {
-            std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(1);
             }
         }
         if (uiLibrary.Button(1, "Settings"))
         {
-            std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(2);
             }
         }
         if (uiLibrary.Button(2, "Leaderboard"))
         {
-            std::cout << "Hi!" << std::endl;
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(3);
             }
@@ -105,7 +103,6 @@ public:
         }
         if (uiLibrary.Button(1, "Back to Start", 100.0f))
         {
-            std::cout << "Hi!" << std::endl;
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(0);
             }
@@ -151,7 +148,6 @@ public:
         }
         if (uiLibrary.Button(0, "Back to Start", 500.0f))
         {
-            std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(0);
             }
@@ -168,9 +164,11 @@ public:
 class GameScene : public Scene {
     Texture pause;
     float accumulator;
+    NJSONOutputArchive archive;
 
 public:
-    void Begin() override {
+    void Begin() override 
+    {
         pause = ResourceManager::GetInstance()->GetTexture("pause.png");
 
         srand(time(0));
@@ -210,7 +208,27 @@ public:
 
         if (uiLibrary.ButtonIcon(0, {740, 40}, pause))
         {
-            std::cout << "Hello!" << std::endl;
+            entt::basic_snapshot snapshot(registry);
+            /* snapshot.entities(archive).component<CircleComponent, SquareComponent,
+            PositionComponent, ColorComponent, SpriteComponent, MoveComponent, 
+            AccelerationComponent, PhysicsComponent, DirectionComponent, InteractableComponent,
+            InteractorComponent, ChairComponent, TableComponent, DiningTableComponent,
+            PlaceableComponent, HoldableComponent, HolderComponent, DrinkComponent,
+            IngredientComponent, StackComponent, CoffeeMachineComponent, TimerComponent,
+            CustomerComponent, MoneyComponent>(archive); */
+            snapshot.entities(archive).component<CircleComponent, SquareComponent, 
+            PositionComponent, ColorComponent, SpriteComponent, MoveComponent,
+            AccelerationComponent, PhysicsComponent, DirectionComponent,
+            InteractableComponent, InteractorComponent, ChairComponent, 
+            TableComponent, DiningTableComponent, PlaceableComponent, 
+            HoldableComponent, HolderComponent, DrinkComponent, 
+            IngredientComponent, StackComponent, CoffeeMachineComponent, 
+            TimerComponent, CustomerComponent, MoneyComponent>(archive);
+            archive.Close();
+
+            std::string json_output = archive.AsString();
+            printf("json:%s\n", json_output.c_str());
+
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(4);
             }
