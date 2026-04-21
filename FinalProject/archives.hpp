@@ -64,7 +64,13 @@ class NJSONOutputArchive
         const void Save(std::string filename)
         {
             std::ofstream file(filename);
-            file << root.dump(4); // pretty print
+            file << root.dump(); 
+        }
+
+        const void Clear(std::string filename)
+        {
+            std::ofstream file(filename);
+            file << "";
         }
 
 };

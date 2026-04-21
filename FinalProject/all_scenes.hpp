@@ -60,16 +60,89 @@ public:
         if (uiLibrary.Button(0, "Start game"))
         {
             if (GetSceneManager() != nullptr) {
+
+                srand(time(0));
+
+                SetTargetFPS(FPS);
+                
+                if (!is_unpaused)
+                {
+                    init_textures();
+                    init_tilemap();
+                    init_entities();
+                    reserve_memory();
+                    accumulator = 0;
+                    day_score = 0;
+                    button_name = "";
+
+                    customers_not_served = 0;
+                    customers_so_far = 0;
+                }
+                else is_unpaused = false;
+
+                setup_camera();
+
                 GetSceneManager()->SwitchScene(1);
             }
         }
-        if (uiLibrary.Button(1, "Settings"))
+        if (uiLibrary.Button(1, "Load game"))
+        {
+            std::fstream file("save.json");
+            if (file.tellg() == 0 && file.peek() == std::ifstream::traits_type::eof())
+            {
+                DrawText("No save file found\n", 20, 50, 20, WHITE);
+            }
+            else
+            {
+                DrawText("Save file found, loading game...\n", 20, 50, 20, WHITE);
+
+                /* save_status = "Saving...\n";
+                entt::basic_snapshot snapshot(registry);
+                snapshot.entities(archive).component<CircleComponent, SquareComponent, 
+                PositionComponent, ColorComponent, SpriteComponent, MoveComponent,
+                AccelerationComponent, PhysicsComponent, DirectionComponent,
+                InteractableComponent, InteractorComponent, ChairComponent, 
+                TableComponent, DiningTableComponent, PlaceableComponent, 
+                HoldableComponent, HolderComponent, DrinkComponent, 
+                IngredientComponent, StackComponent, CoffeeMachineComponent, 
+                TimerComponent, CustomerComponent, MoneyComponent>(archive);
+                archive.Close();
+
+                std::string json_output = archive.AsString();
+                printf("json:%s\n", json_output.c_str());
+
+                archive.Clear("save.json");
+                archive.Save("save.json"); */
+
+                std::string j;
+                file >> j;
+
+                NJSONInputArchive json_in(j);
+                registry.clear();
+
+                entt::basic_snapshot_loader loader(registry);
+                loader.entities(json_in).component<CircleComponent, SquareComponent, 
+                PositionComponent, ColorComponent, SpriteComponent, MoveComponent,
+                AccelerationComponent, PhysicsComponent, DirectionComponent,
+                InteractableComponent, InteractorComponent, ChairComponent, 
+                TableComponent, DiningTableComponent, PlaceableComponent, 
+                HoldableComponent, HolderComponent, DrinkComponent, 
+                IngredientComponent, StackComponent, CoffeeMachineComponent, 
+                TimerComponent, CustomerComponent, MoneyComponent>(json_in);
+
+                if (GetSceneManager() != nullptr) {
+                    GetSceneManager()->SwitchScene(1);
+                }
+            }
+
+        }
+        if (uiLibrary.Button(2, "Settings"))
         {
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(2);
             }
         }
-        if (uiLibrary.Button(2, "Leaderboard"))
+        if (uiLibrary.Button(3, "Leaderboard"))
         {
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(3);
@@ -78,8 +151,8 @@ public:
     }
 
     void Draw() override {
-        DrawTexturePro(bean, sourceRec, {400, 400, 300, 300}, {150.0f, 150.0f}, 45.0f, WHITE);
-        DrawText("R@Nd0M\n  cafe!", 290, 350, 60, WHITE);
+        DrawTexturePro(bean, sourceRec, {400, 500, 300, 300}, {150.0f, 150.0f}, 45.0f, WHITE);
+        DrawText("R@Nd0M\n  cafe!", 290, 450, 60, WHITE);
     }
 };
 
@@ -164,33 +237,11 @@ public:
 class GameScene : public Scene {
     Texture pause;
     float accumulator;
-    NJSONOutputArchive archive;
 
 public:
     void Begin() override 
     {
         pause = ResourceManager::GetInstance()->GetTexture("pause.png");
-
-        srand(time(0));
-
-        SetTargetFPS(FPS);
-        
-        if (!is_unpaused)
-        {
-            init_textures();
-            init_tilemap();
-            init_entities();
-            reserve_memory();
-            accumulator = 0;
-            day_score = 0;
-            button_name = "";
-
-            customers_not_served = 0;
-            customers_so_far = 0;
-        }
-        else is_unpaused = false;
-
-        setup_camera();
     }   
 
     void End() override {}
@@ -214,22 +265,6 @@ public:
         
         if (uiLibrary.ButtonIcon(0, {740, 40}, pause))
         {
-            entt::basic_snapshot snapshot(registry);
-            snapshot.entities(archive).component<CircleComponent, SquareComponent, 
-            PositionComponent, ColorComponent, SpriteComponent, MoveComponent,
-            AccelerationComponent, PhysicsComponent, DirectionComponent,
-            InteractableComponent, InteractorComponent, ChairComponent, 
-            TableComponent, DiningTableComponent, PlaceableComponent, 
-            HoldableComponent, HolderComponent, DrinkComponent, 
-            IngredientComponent, StackComponent, CoffeeMachineComponent, 
-            TimerComponent, CustomerComponent, MoneyComponent>(archive);
-            archive.Close();
-
-            std::string json_output = archive.AsString();
-            printf("json:%s\n", json_output.c_str());
-
-            //archive.Save("save.json");
-
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(4);
             }
@@ -275,6 +310,9 @@ public:
 };
 
 class PauseScene : public Scene {
+NJSONOutputArchive archive;
+std::string save_status = "";
+
 public:
     void Begin() override {}
 
@@ -288,15 +326,35 @@ public:
         }
         if (uiLibrary.Button(0, "Resume Game"))
         {
-            std::cout << "Hello!" << std::endl;
             if (GetSceneManager() != nullptr) {
                 is_unpaused = true;
                 GetSceneManager()->SwitchScene(1);
             }
         }
-        if (uiLibrary.Button(1, "Main Menu"))
+        if (uiLibrary.Button(1, "Save Game"))
         {
-            std::cout << "Hi!" << std::endl;
+            save_status = "Saving...\n";
+            entt::basic_snapshot snapshot(registry);
+            snapshot.entities(archive).component<CircleComponent, SquareComponent, 
+            PositionComponent, ColorComponent, SpriteComponent, MoveComponent,
+            AccelerationComponent, PhysicsComponent, DirectionComponent,
+            InteractableComponent, InteractorComponent, ChairComponent, 
+            TableComponent, DiningTableComponent, PlaceableComponent, 
+            HoldableComponent, HolderComponent, DrinkComponent, 
+            IngredientComponent, StackComponent, CoffeeMachineComponent, 
+            TimerComponent, CustomerComponent, MoneyComponent>(archive);
+            archive.Close();
+
+            std::string json_output = archive.AsString();
+            printf("json:%s\n", json_output.c_str());
+
+            archive.Clear("save.json");
+            archive.Save("save.json");
+
+            save_status = "Game saved!\n";
+        }
+        if (uiLibrary.Button(2, "Main Menu"))
+        {
             if (GetSceneManager() != nullptr) {
                 GetSceneManager()->SwitchScene(6);
             }
@@ -304,7 +362,8 @@ public:
     }
 
     void Draw() override {
-        DrawText("GAME PAUSED", 280, 300, 30, BLACK);
+        DrawText("GAME PAUSED\n", 280, 300, 30, BLACK);
+        DrawText(save_status.c_str(), 20, 50, 20, WHITE);
     }
 };
 
